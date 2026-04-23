@@ -24,13 +24,23 @@ impl TryFrom<AF_OP> for UserAuthFlags {
     type Error = InvalidUserProperty;
 
     fn try_from(value: AF_OP) -> Result<Self, Self::Error> {
-        UserAuthFlags::from_bits(value.0).ok_or(InvalidUserProperty::AfOp(value.0))
+        Self::from_bits(value.0).ok_or(InvalidUserProperty::AfOp(value.0))
     }
 }
 
 impl From<UserAuthFlags> for AF_OP {
     fn from(flags: UserAuthFlags) -> Self {
         Self(flags.bits())
+    }
+}
+
+pub trait ToUserAuthFlags {
+    fn to_auth_flags(self) -> Option<UserAuthFlags>;
+}
+
+impl ToUserAuthFlags for AF_OP {
+    fn to_auth_flags(self) -> Option<UserAuthFlags> {
+        UserAuthFlags::try_from(self).ok().filter(|f| !f.is_empty())
     }
 }
 

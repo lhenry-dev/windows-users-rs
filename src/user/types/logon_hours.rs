@@ -1,3 +1,14 @@
+use thiserror::Error;
+
+#[derive(Debug, Error, Clone, PartialEq, Eq)]
+pub enum LogonHoursError {
+    #[error("hour must be in range 0..23, got {0}")]
+    InvalidHour(u8),
+
+    #[error("invalid range: start ({start}) must be < end ({end}) and end <= 24")]
+    InvalidRange { start: u8, end: u8 },
+}
+
 #[repr(usize)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Day {
@@ -19,42 +30,68 @@ pub struct LogonHours {
 impl From<*mut u8> for LogonHours {
     fn from(ptr: *mut u8) -> Self {
         if ptr.is_null() {
-            LogonHours::allow_all()
+            Self::allow_all()
         } else {
-            LogonHours::from_ptr(ptr)
+            Self::from_ptr(ptr)
         }
     }
 }
 
 impl From<LogonHours> for Vec<u8> {
-    fn from(value: LogonHours) -> Vec<u8> {
+    fn from(value: LogonHours) -> Self {
         value.bytes.to_vec()
     }
 }
 
 impl LogonHours {
-    /// Total number of hours in a week (7 days * 24 hours).
+    /// Number of hours in a full week.
+    ///
+    /// The value represents the total discrete time slots tracked by
+    /// the Windows logon-hours bitmap:
+    /// - 7 days per week
+    /// - 24 hours per day
+    ///
+    /// Total: `7 × 24 = 168` time units.
     pub const UNITS_PER_WEEK: u32 = 168;
 
-    /// Number of bytes required to represent logon hours (7 days * 24 hours = 168 bits = 21 bytes).
+    /// Size in bytes of the Windows logon-hours bitmap.
+    ///
+    /// The Windows API represents weekly logon permissions as a
+    /// 168-bit bitmap (one bit per hour), packed into 21 bytes:
+    /// `168 bits / 8 = 21 bytes`.
+    ///
+    /// This constant defines the exact buffer size required by
+    /// `USER_INFO_1020`.
     pub const LEN: usize = 21;
 
-    /// Creates a LogonHours with all hours allowed.
+    /// Creates a `LogonHours` value where all hours of the week are allowed.
+    ///
+    /// This initializes the internal bitmap to all bits set (`0xFF`),
+    /// meaning unrestricted access across all days and hours.
     pub fn allow_all() -> Self {
         Self { bytes: [0xFF; 21] }
     }
 
-    /// Creates a LogonHours with all hours denied.
+    /// Creates a `LogonHours` value where all hours of the week are denied.
+    ///
+    /// This initializes the internal bitmap to all bits cleared (`0x00`),
+    /// meaning no logon is permitted at any time.
     pub fn deny_all() -> Self {
         Self { bytes: [0x00; 21] }
     }
 
-    /// Creates a LogonHours from a raw 21-byte array.
+    /// Creates a `LogonHours` instance from a raw 21-byte bitmap.
+    ///
+    /// This constructor assumes the provided buffer is already in the
+    /// Windows logon-hours format.
+    ///
+    /// # Arguments
+    ///
+    /// * `bytes` - A 21-byte array representing the weekly logon bitmap.
     pub fn new(bytes: [u8; 21]) -> Self {
         Self { bytes }
     }
 
-    /// Creates a LogonHours from a pointer to a 21-byte array.
     fn from_ptr(ptr: *const u8) -> Self {
         let bytes = unsafe { std::slice::from_raw_parts(ptr, Self::LEN) };
         let mut array = [0u8; Self::LEN];
@@ -62,14 +99,45 @@ impl LogonHours {
         Self { bytes: array }
     }
 
+    /// Returns the raw Windows logon-hours bitmap.
+    ///
+    /// The returned slice is exactly 21 bytes long and represents
+    /// 168 bits of weekly access permissions.
+    ///
+    /// # Format
+    ///
+    /// Each bit corresponds to a specific `(day, hour)` pair:
+    /// - 0 = denied
+    /// - 1 = allowed
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
     #[inline]
     fn index(day: Day, hour: u8) -> usize {
         (day as usize) * 24 + (hour as usize)
     }
 
-    /// Sets whether a specific hour on a specific day is allowed for logon.
-    pub fn set(&mut self, day: Day, hour: u8, allowed: bool) {
-        assert!(hour < 24, "hour must be 0..23");
+    /// Sets whether a specific hour is allowed or denied for logon.
+    ///
+    /// # Arguments
+    ///
+    /// * `day` - Day of the week
+    /// * `hour` - Hour of the day (0–23)
+    /// * `allowed` - `true` to allow logon, `false` to deny
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` on success.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if:
+    /// - `hour >= 24`
+    pub fn set(&mut self, day: Day, hour: u8, allowed: bool) -> Result<(), LogonHoursError> {
+        if hour >= 24 {
+            return Err(LogonHoursError::InvalidHour(hour));
+        }
 
         let i = Self::index(day, hour);
         let byte = i / 8;
@@ -80,25 +148,67 @@ impl LogonHours {
         } else {
             self.bytes[byte] &= !(1 << bit);
         }
+
+        Ok(())
     }
 
-    /// Checks if a specific hour on a specific day is allowed for logon.
-    pub fn is_allowed(&self, day: Day, hour: u8) -> bool {
-        assert!(hour < 24, "hour must be 0..23");
+    /// Checks whether a specific hour is allowed for logon.
+    ///
+    /// # Arguments
+    ///
+    /// * `day` - Day of the week
+    /// * `hour` - Hour of the day (0–23)
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(true)` if logon is allowed
+    /// - `Ok(false)` if denied
+    ///
+    /// # Errors
+    ///
+    /// Returns error if:
+    /// - `hour >= 24`
+    pub fn is_allowed(&self, day: Day, hour: u8) -> Result<bool, LogonHoursError> {
+        if hour >= 24 {
+            return Err(LogonHoursError::InvalidHour(hour));
+        }
 
         let i = Self::index(day, hour);
         let byte = i / 8;
         let bit = i % 8;
 
-        (self.bytes[byte] & (1 << bit)) != 0
+        Ok((self.bytes[byte] & (1 << bit)) != 0)
     }
 
-    /// Allows a range of hours on a specific day for logon.
-    pub fn allow_range(&mut self, day: Day, start: u8, end: u8) {
-        assert!(start < end && end <= 24, "Invalid hour range");
-        for h in start..end {
-            self.set(day, h, true);
+    /// Allows a contiguous range of hours on a given day.
+    ///
+    /// The range is **half-open**: `[start, end)`
+    ///
+    /// # Arguments
+    ///
+    /// * `day` - Day of the week
+    /// * `start` - Starting hour (inclusive)
+    /// * `end` - Ending hour (exclusive)
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` on success.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if:
+    /// - `start >= end`
+    /// - `end > 24`
+    pub fn allow_range(&mut self, day: Day, start: u8, end: u8) -> Result<(), LogonHoursError> {
+        if start >= end || end > 24 {
+            return Err(LogonHoursError::InvalidRange { start, end });
         }
+
+        for h in start..end {
+            self.set(day, h, true)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -109,21 +219,21 @@ mod tests {
     #[test]
     fn test_set_and_is_allowed() {
         let mut hours = LogonHours::deny_all();
-        assert!(!hours.is_allowed(Day::Monday, 9));
-        hours.set(Day::Monday, 9, true);
-        assert!(hours.is_allowed(Day::Monday, 9));
-        hours.set(Day::Monday, 9, false);
-        assert!(!hours.is_allowed(Day::Monday, 9));
+        assert!(!hours.is_allowed(Day::Monday, 9).unwrap());
+        hours.set(Day::Monday, 9, true).unwrap();
+        assert!(hours.is_allowed(Day::Monday, 9).unwrap());
+        hours.set(Day::Monday, 9, false).unwrap();
+        assert!(!hours.is_allowed(Day::Monday, 9).unwrap());
     }
 
     #[test]
     fn test_allow_range() {
         let mut hours = LogonHours::deny_all();
-        hours.allow_range(Day::Friday, 9, 12);
-        assert!(hours.is_allowed(Day::Friday, 9));
-        assert!(hours.is_allowed(Day::Friday, 10));
-        assert!(hours.is_allowed(Day::Friday, 11));
-        assert!(!hours.is_allowed(Day::Friday, 12));
+        hours.allow_range(Day::Friday, 9, 12).unwrap();
+        assert!(hours.is_allowed(Day::Friday, 9).unwrap());
+        assert!(hours.is_allowed(Day::Friday, 10).unwrap());
+        assert!(hours.is_allowed(Day::Friday, 11).unwrap());
+        assert!(!hours.is_allowed(Day::Friday, 12).unwrap());
     }
 
     #[test]
@@ -140,7 +250,7 @@ mod tests {
         ];
         for day in days {
             for hour in 0..24 {
-                assert!(hours.is_allowed(day, hour));
+                assert!(hours.is_allowed(day, hour).unwrap());
             }
         }
     }
@@ -160,6 +270,6 @@ mod tests {
 
         let hours = LogonHours::new(bytes);
 
-        assert!(hours.is_allowed(day, hour));
+        assert!(hours.is_allowed(day, hour).unwrap());
     }
 }

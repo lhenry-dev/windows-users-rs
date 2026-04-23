@@ -13,7 +13,7 @@ use crate::{
     set_user_full_name, set_user_home_dir_drive, set_user_home_directory, set_user_logon_hours,
     set_user_name, set_user_password, set_user_primary_group, set_user_profile,
     set_user_script_path, set_user_user_comment, set_user_workstations,
-    utils::{net_api_result, net_api_result_with_index, to_wide},
+    utils::{ToWideString, net_api_result, net_api_result_with_index},
 };
 
 pub mod update_ops;
@@ -45,7 +45,7 @@ pub mod update_ops;
 /// ⚠️ Requires **administrative privileges**.
 pub fn add_user(server_name: Option<&str>, user: &User) -> Result<(), WindowsUsersError> {
     let server_name_p = server_name
-        .map(|s| PCWSTR(to_wide(s).as_ptr()))
+        .map(|s| PCWSTR(s.to_wide().as_ptr()))
         .unwrap_or_default();
 
     let mut info = user.to_user_info_4();
@@ -56,8 +56,8 @@ pub fn add_user(server_name: Option<&str>, user: &User) -> Result<(), WindowsUse
         NetUserAdd(
             server_name_p,
             4,
-            &mut info.user_info as *mut USER_INFO_4 as *const u8,
-            Some(&mut parm_err),
+            std::ptr::from_mut::<USER_INFO_4>(&mut info.user_info) as *const u8,
+            Some(&raw mut parm_err),
         )
     };
 
@@ -177,10 +177,10 @@ pub fn add_user_or_update(
 /// ⚠️ Requires **administrative privileges**.
 pub fn delete_user(server_name: Option<&str>, username: &str) -> Result<(), WindowsUsersError> {
     let server_name = server_name
-        .map(|s| PCWSTR(to_wide(s).as_ptr()))
+        .map(|s| PCWSTR(s.to_wide().as_ptr()))
         .unwrap_or_default();
 
-    let username_w = to_wide(username);
+    let username_w = username.to_wide();
 
     let status = unsafe { NetUserDel(server_name, PCWSTR(username_w.as_ptr())) };
 
@@ -221,12 +221,12 @@ pub fn change_user_password(
     new_password: &str,
 ) -> Result<(), WindowsUsersError> {
     let server_name = server_name
-        .map(|s| PCWSTR(to_wide(s).as_ptr()))
+        .map(|s| PCWSTR(s.to_wide().as_ptr()))
         .unwrap_or_default();
 
-    let username_w = to_wide(username);
-    let old_pw_w = to_wide(old_password);
-    let new_pw_w = to_wide(new_password);
+    let username_w = username.to_wide();
+    let old_pw_w = old_password.to_wide();
+    let new_pw_w = new_password.to_wide();
 
     let status = unsafe {
         NetUserChangePassword(
@@ -300,7 +300,7 @@ pub fn update_user(
     }
 
     if let Some(ref workstations) = settings.workstations {
-        set_user_workstations(server_name, username, workstations.clone())?;
+        set_user_workstations(server_name, username, workstations)?;
     }
 
     if let Some(acct_expires) = settings.acct_expires {
@@ -312,7 +312,7 @@ pub fn update_user(
             server_name,
             username,
             LogonHours::UNITS_PER_WEEK,
-            logon_hours.clone().into(),
+            logon_hours.clone().as_bytes(),
         )?;
     }
 
@@ -361,15 +361,15 @@ pub fn update_user(
 /// - Returned data cannot be converted into [`User`]
 pub fn get_user(server_name: Option<&str>, username: &str) -> Result<User, WindowsUsersError> {
     let server_name = server_name
-        .map(|s| PCWSTR(to_wide(s).as_ptr()))
+        .map(|s| PCWSTR(s.to_wide().as_ptr()))
         .unwrap_or_default();
 
-    let username_w = to_wide(username);
+    let username_w = username.to_wide();
 
     let mut buffer = std::ptr::null_mut();
 
     let status =
-        unsafe { NetUserGetInfo(server_name, PCWSTR(username_w.as_ptr()), 4, &mut buffer) };
+        unsafe { NetUserGetInfo(server_name, PCWSTR(username_w.as_ptr()), 4, &raw mut buffer) };
 
     let _guard = scopeguard::guard(buffer, |buf| {
         if !buf.is_null() {
@@ -384,7 +384,7 @@ pub fn get_user(server_name: Option<&str>, username: &str) -> Result<User, Windo
         User::try_from(ui4)?
     };
 
-    Ok(user.clone())
+    Ok(user)
 }
 
 /// Checks if a user exists on the local machine.
@@ -406,15 +406,15 @@ pub fn get_user(server_name: Option<&str>, username: &str) -> Result<User, Windo
 /// This function does not return errors directly.
 pub fn user_exists(server_name: Option<&str>, username: &str) -> bool {
     let server_name = server_name
-        .map(|s| PCWSTR(to_wide(s).as_ptr()))
+        .map(|s| PCWSTR(s.to_wide().as_ptr()))
         .unwrap_or_default();
 
-    let username_w = to_wide(username);
+    let username_w = username.to_wide();
 
     let mut buffer = std::ptr::null_mut();
 
     let status =
-        unsafe { NetUserGetInfo(server_name, PCWSTR(username_w.as_ptr()), 0, &mut buffer) };
+        unsafe { NetUserGetInfo(server_name, PCWSTR(username_w.as_ptr()), 0, &raw mut buffer) };
 
     let _guard = scopeguard::guard(buffer, |buf| {
         if !buf.is_null() {

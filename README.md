@@ -123,12 +123,12 @@ match user.delete(None) {
 ### Managing Group Membership
 
 ```rust
-use windows_users::{add_user_to_group, list_group_members, remove_user_from_group};
+use windows_users::{add_users_to_group, list_group_members, remove_users_from_group};
 
-let username = "DemoUser";
+let username = ["DemoUser"];
 let group = "Users";
 
-match add_user_to_group(None, username, group) {
+match add_users_to_group(None, &username, group) {
     Ok(_) => println!("User added to group"),
     Err(e) => eprintln!("Failed to add user to group: {e}"),
 }
@@ -142,7 +142,7 @@ match list_group_members(None, group) {
     Err(e) => eprintln!("Failed to list members: {e}"),
 }
 
-match remove_user_from_group(None, username, group) {
+match remove_users_from_group(None, &username, group) {
     Ok(_) => println!("User removed from group"),
     Err(e) => eprintln!("Failed to remove user from group: {e}"),
 }

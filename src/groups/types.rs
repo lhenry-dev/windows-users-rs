@@ -25,7 +25,7 @@ impl TryFrom<&LOCALGROUP_INFO_1> for Group {
     fn try_from(group: &LOCALGROUP_INFO_1) -> Result<Self, WindowsUsersError> {
         unsafe {
             Ok({
-                Group {
+                Self {
                     name: group.lgrpi1_name.to_string()?,
                     comment: group
                         .lgrpi1_comment
@@ -68,11 +68,11 @@ impl TryFrom<&LOCALGROUP_MEMBERS_INFO_2> for GroupMember {
 
             let (domain, name) = match full_name.split_once('\\') {
                 Some((d, n)) => (d.to_string(), n.to_string()),
-                None => ("".to_string(), full_name),
+                None => (String::new(), full_name),
             };
 
             Ok({
-                GroupMember {
+                Self {
                     name,
                     domain,
                     sid_type: member.lgrmi2_sidusage.0,

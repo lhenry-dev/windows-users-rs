@@ -63,7 +63,7 @@ bitflags! {
 
 impl Default for UserAccountFlags {
     fn default() -> Self {
-        UserAccountFlags::SCRIPT | UserAccountFlags::NORMAL_ACCOUNT
+        Self::SCRIPT | Self::NORMAL_ACCOUNT
     }
 }
 
@@ -71,7 +71,7 @@ impl TryFrom<USER_ACCOUNT_FLAGS> for UserAccountFlags {
     type Error = InvalidUserProperty;
 
     fn try_from(value: USER_ACCOUNT_FLAGS) -> Result<Self, Self::Error> {
-        UserAccountFlags::from_bits(value.0).ok_or(InvalidUserProperty::UserAccountFlags(value.0))
+        Self::from_bits(value.0).ok_or(InvalidUserProperty::UserAccountFlags(value.0))
     }
 }
 

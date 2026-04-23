@@ -1,5 +1,5 @@
 use windows_users::{
-    add_user_to_group, list_group_members, list_groups, remove_user_from_group, well_known_sid,
+    add_users_to_group, list_group_members, list_groups, remove_users_from_group, well_known_sid,
 };
 
 use crate::helpers::{
@@ -61,8 +61,8 @@ fn test_add_and_remove_user_from_group_roundtrip() {
 
     let group_name = well_known_sid::GUESTS.name().unwrap();
 
-    let _ = remove_user_from_group(None, &user_name, &group_name);
-    add_user_to_group(None, &user_name, &group_name).expect("Failed to add user to group");
+    let _ = remove_users_from_group(None, &[&user_name], &group_name);
+    add_users_to_group(None, &[&user_name], &group_name).expect("Failed to add user to group");
 
     let members_after_add =
         list_group_members(None, &group_name).expect("Failed to list group members after add");
@@ -73,7 +73,7 @@ fn test_add_and_remove_user_from_group_roundtrip() {
         "Expected user to be present in group after add"
     );
 
-    remove_user_from_group(None, &user_name, &group_name)
+    remove_users_from_group(None, &[&user_name], &group_name)
         .expect("Failed to remove user from group");
     let members_after_remove =
         list_group_members(None, &group_name).expect("Failed to list group members after remove");

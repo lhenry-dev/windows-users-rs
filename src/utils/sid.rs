@@ -10,17 +10,17 @@ use windows::{
 };
 
 use crate::error::WindowsUsersError;
-use crate::utils::convert::to_wide;
+use crate::utils::ToWideString;
 
 pub fn psid_to_string(psid: PSID) -> Result<String, WindowsUsersError> {
     let mut str_sid: PWSTR = PWSTR(std::ptr::null_mut());
     unsafe {
-        ConvertSidToStringSidW(psid, &mut str_sid)?;
+        ConvertSidToStringSidW(psid, &raw mut str_sid)?;
     }
 
     let _str_sid_guard = guard(str_sid, |ptr| unsafe {
         if !ptr.0.is_null() {
-            LocalFree(Some(HLOCAL(ptr.as_ptr() as *mut std::ffi::c_void)));
+            LocalFree(Some(HLOCAL(ptr.as_ptr().cast::<std::ffi::c_void>())));
         }
     });
 
@@ -53,7 +53,7 @@ pub fn str_to_psid(sid: &str) -> Result<OwnedSid, WindowsUsersError> {
     let mut psid = PSID(std::ptr::null_mut());
 
     unsafe {
-        ConvertStringSidToSidW(PCWSTR(to_wide(sid).as_ptr()), &mut psid)?;
+        ConvertStringSidToSidW(PCWSTR(sid.to_wide().as_ptr()), &raw mut psid)?;
     }
 
     Ok(OwnedSid { sid: psid })

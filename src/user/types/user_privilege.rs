@@ -21,9 +21,9 @@ impl TryFrom<USER_PRIV> for UserPrivilege {
 
     fn try_from(value: USER_PRIV) -> Result<Self, Self::Error> {
         match value {
-            USER_PRIV_GUEST => Ok(UserPrivilege::Guest),
-            USER_PRIV_USER => Ok(UserPrivilege::User),
-            USER_PRIV_ADMIN => Ok(UserPrivilege::Admin),
+            USER_PRIV_GUEST => Ok(Self::Guest),
+            USER_PRIV_USER => Ok(Self::User),
+            USER_PRIV_ADMIN => Ok(Self::Admin),
             _ => Err(InvalidUserProperty::UserPriv(value.0)),
         }
     }

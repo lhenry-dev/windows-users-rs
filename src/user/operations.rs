@@ -151,7 +151,7 @@ impl User {
         update_user(server_name, &self.name, settings)?;
 
         if let Some(name) = &settings.name {
-            self.name = name.clone();
+            self.name.clone_from(name);
         }
         if let Some(password) = &settings.password {
             self.password = Some(password.clone());

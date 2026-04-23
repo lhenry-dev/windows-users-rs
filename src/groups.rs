@@ -9,8 +9,9 @@ use windows::{
     core::{PCWSTR, PWSTR},
 };
 
-use crate::utils::net_api_result;
-use crate::{error::WindowsUsersError, utils::to_wide};
+use crate::error::WindowsUsersError;
+use crate::user::types::InvalidUserProperty;
+use crate::utils::{ToWideString, net_api_result};
 
 pub use crate::groups::types::{Group, GroupMember};
 
@@ -37,7 +38,7 @@ mod types;
 /// - Any returned entry cannot be converted into [`Group`]
 pub fn list_groups(server_name: Option<&str>) -> Result<Vec<Group>, WindowsUsersError> {
     let server_name = server_name
-        .map(|s| PCWSTR(to_wide(s).as_ptr()))
+        .map(|s| PCWSTR(s.to_wide().as_ptr()))
         .unwrap_or_default();
 
     let mut buffer = std::ptr::null_mut();
@@ -49,11 +50,11 @@ pub fn list_groups(server_name: Option<&str>) -> Result<Vec<Group>, WindowsUsers
         NetLocalGroupEnum(
             server_name,
             1,
-            &mut buffer,
+            &raw mut buffer,
             u32::MAX,
-            &mut entries_read,
-            &mut total_entries,
-            Some(&mut resume_handle),
+            &raw mut entries_read,
+            &raw mut total_entries,
+            Some(&raw mut resume_handle),
         )
     };
 
@@ -104,10 +105,10 @@ pub fn list_group_members(
     group: &str,
 ) -> Result<Vec<GroupMember>, WindowsUsersError> {
     let server_name = server_name
-        .map(|s| PCWSTR(to_wide(s).as_ptr()))
+        .map(|s| PCWSTR(s.to_wide().as_ptr()))
         .unwrap_or_default();
 
-    let group_w = to_wide(group);
+    let group_w = group.to_wide();
 
     let mut buffer = std::ptr::null_mut();
     let mut entries_read = 0;
@@ -119,11 +120,11 @@ pub fn list_group_members(
             server_name,
             PCWSTR(group_w.as_ptr()),
             2,
-            &mut buffer,
+            &raw mut buffer,
             u32::MAX,
-            &mut entries_read,
-            &mut total_entries,
-            Some(&mut resume_handle),
+            &raw mut entries_read,
+            &raw mut total_entries,
+            Some(&raw mut resume_handle),
         )
     };
 
@@ -152,15 +153,15 @@ pub fn list_group_members(
     Ok(members)
 }
 
-/// Adds a user to a local group on the machine.
+/// Adds users to a local group on the machine.
 ///
-/// This function adds `username` to `group` using `NetLocalGroupAddMembers`
+/// This function adds `usernames` to `group` using `NetLocalGroupAddMembers`
 /// with `LOCALGROUP_MEMBERS_INFO_3`.
 ///
 /// # Arguments
 ///
 /// * `server_name` - Optional target server. If `None`, the local machine is used.
-/// * `username` - User account to add to the group.
+/// * `usernames` - Slice of user accounts to add to the group.
 /// * `group` - Target local group name.
 ///
 /// # Returns
@@ -178,44 +179,48 @@ pub fn list_group_members(
 /// # Security
 ///
 /// ⚠️ Requires **administrative privileges**.
-pub fn add_user_to_group(
+pub fn add_users_to_group(
     server_name: Option<&str>,
-    username: &str,
+    usernames: &[&str],
     group: &str,
 ) -> Result<(), WindowsUsersError> {
     let server_name = server_name
-        .map(|s| PCWSTR(to_wide(s).as_ptr()))
+        .map(|s| PCWSTR(s.to_wide().as_ptr()))
         .unwrap_or_default();
 
-    let mut user_w = to_wide(username);
-    let group_w = to_wide(group);
+    let group_w = group.to_wide();
+    let mut users_w: Vec<Vec<u16>> = usernames.iter().map(|u| u.to_wide()).collect();
 
-    let mut member = LOCALGROUP_MEMBERS_INFO_3 {
-        lgrmi3_domainandname: PWSTR(user_w.as_mut_ptr()),
-    };
+    let members: Vec<LOCALGROUP_MEMBERS_INFO_3> = users_w
+        .iter_mut()
+        .map(|u| LOCALGROUP_MEMBERS_INFO_3 {
+            lgrmi3_domainandname: PWSTR(u.as_mut_ptr()),
+        })
+        .collect();
 
     let status = unsafe {
         NetLocalGroupAddMembers(
             server_name,
             PCWSTR(group_w.as_ptr()),
             3,
-            &mut member as *mut LOCALGROUP_MEMBERS_INFO_3 as *const u8,
-            1,
+            members.as_ptr().cast::<u8>(),
+            u32::try_from(members.len())
+                .map_err(|_| InvalidUserProperty::InvalidGroupMembersLen(members.len()))?,
         )
     };
 
     net_api_result(status)
 }
 
-/// Removes a user from a local group on the machine.
+/// Removes users from a local group on the machine.
 ///
-/// This function removes `username` from `group` using `NetLocalGroupDelMembers`
+/// This function removes `usernames` from `group` using `NetLocalGroupDelMembers`
 /// with `LOCALGROUP_MEMBERS_INFO_3`.
 ///
 /// # Arguments
 ///
 /// * `server_name` - Optional target server. If `None`, the local machine is used.
-/// * `username` - User account to remove from the group.
+/// * `usernames` - Slice of user accounts to remove from the group.
 /// * `group` - Target local group name.
 ///
 /// # Returns
@@ -233,29 +238,33 @@ pub fn add_user_to_group(
 /// # Security
 ///
 /// ⚠️ Requires **administrative privileges**.
-pub fn remove_user_from_group(
+pub fn remove_users_from_group(
     server_name: Option<&str>,
-    username: &str,
+    usernames: &[&str],
     group: &str,
 ) -> Result<(), WindowsUsersError> {
     let server_name = server_name
-        .map(|s| PCWSTR(to_wide(s).as_ptr()))
+        .map(|s| PCWSTR(s.to_wide().as_ptr()))
         .unwrap_or_default();
 
-    let mut user_w = to_wide(username);
-    let group_w = to_wide(group);
+    let group_w = group.to_wide();
+    let mut users_w: Vec<Vec<u16>> = usernames.iter().map(|u| u.to_wide()).collect();
 
-    let mut member = LOCALGROUP_MEMBERS_INFO_3 {
-        lgrmi3_domainandname: PWSTR(user_w.as_mut_ptr()),
-    };
+    let members: Vec<LOCALGROUP_MEMBERS_INFO_3> = users_w
+        .iter_mut()
+        .map(|u| LOCALGROUP_MEMBERS_INFO_3 {
+            lgrmi3_domainandname: PWSTR(u.as_mut_ptr()),
+        })
+        .collect();
 
     let status = unsafe {
         NetLocalGroupDelMembers(
             server_name,
             PCWSTR(group_w.as_ptr()),
             3,
-            &mut member as *mut LOCALGROUP_MEMBERS_INFO_3 as *const u8,
-            1,
+            members.as_ptr().cast::<u8>(),
+            u32::try_from(members.len())
+                .map_err(|_| InvalidUserProperty::InvalidGroupMembersLen(members.len()))?,
         )
     };
 

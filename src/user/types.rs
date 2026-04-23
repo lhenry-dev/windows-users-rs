@@ -6,6 +6,8 @@ pub mod user_privilege;
 
 use thiserror::Error;
 
+use crate::user::types::logon_hours::LogonHoursError;
+
 pub use self::logon_hours::LogonHours;
 pub use self::sid_type::SidType;
 pub use self::user_account_flags::UserAccountFlags;
@@ -26,4 +28,16 @@ pub enum InvalidUserProperty {
     /// Indicates that an invalid value was used for `SID_NAME_USE`.
     #[error("Invalid SID_NAME_USE value: {0}")]
     SidType(i32),
+    /// Indicates that an invalid value was used for `seconds`.
+    #[error(transparent)]
+    LogonHours(LogonHoursError),
+    /// Indicates that an invalid value was used for `timestamp`.
+    #[error("Invalid timestamp value: {0}")]
+    Timestamp(i64),
+    /// Indicates that an invalid value was used for `seconds`.
+    #[error("Invalid seconds value: {0}")]
+    Seconds(u64),
+    /// Indicates that a group members list length is invalid or cannot be converted
+    #[error("invalid group members length: {0}")]
+    InvalidGroupMembersLen(usize),
 }

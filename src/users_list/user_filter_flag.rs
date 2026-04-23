@@ -25,7 +25,7 @@ bitflags! {
 
 impl From<UserFilterFlags> for NET_USER_ENUM_FILTER_FLAGS {
     fn from(flags: UserFilterFlags) -> Self {
-        NET_USER_ENUM_FILTER_FLAGS(flags.bits())
+        Self(flags.bits())
     }
 }
 

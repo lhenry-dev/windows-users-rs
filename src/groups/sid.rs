@@ -14,12 +14,34 @@ pub struct Sid {
 }
 
 impl Sid {
-    /// Returns the raw SID string.
+    /// Returns the raw SID string representation.
+    ///
+    /// This returns the underlying Security Identifier (SID) in its canonical
+    /// string format (e.g. `"S-1-5-21-..."`).
     pub const fn as_str(&self) -> &'static str {
         self.sid
     }
 
-    /// Resolves the SID to a Windows account/group name.
+    /// Resolves the SID to its associated Windows account or group name.
+    ///
+    /// This function queries the local or domain security authority to translate
+    /// the SID into a human-readable account name.
+    ///
+    /// # Returns
+    ///
+    /// On success, returns the resolved account or group name as a `String`.
+    ///
+    /// The returned value typically corresponds to:
+    /// - Local user accounts
+    /// - Domain user accounts
+    /// - Built-in Windows groups (e.g. `Administrators`)
+    ///
+    /// # Errors
+    ///
+    /// Returns [`WindowsUsersError`] if:
+    /// - The SID is invalid or malformed
+    /// - The lookup operation fails (`LookupAccountSid` failure)
+    /// - The SID cannot be resolved to a known account
     pub fn name(&self) -> Result<String, WindowsUsersError> {
         lookup_account_sid(None, str_to_psid(self.sid)?.as_psid()).map(|(name, _, _)| name)
     }

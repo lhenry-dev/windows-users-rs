@@ -34,17 +34,17 @@ impl TryFrom<SID_NAME_USE> for SidType {
 
     fn try_from(value: SID_NAME_USE) -> Result<Self, Self::Error> {
         match value {
-            SID_NAME_USE(1) => Ok(SidType::User),
-            SID_NAME_USE(2) => Ok(SidType::Group),
-            SID_NAME_USE(3) => Ok(SidType::Domain),
-            SID_NAME_USE(4) => Ok(SidType::Alias),
-            SID_NAME_USE(5) => Ok(SidType::WellKnownGroup),
-            SID_NAME_USE(6) => Ok(SidType::DeletedAccount),
-            SID_NAME_USE(7) => Ok(SidType::Invalid),
-            SID_NAME_USE(8) => Ok(SidType::Unknown),
-            SID_NAME_USE(9) => Ok(SidType::Computer),
-            SID_NAME_USE(10) => Ok(SidType::Label),
-            SID_NAME_USE(11) => Ok(SidType::LogonSession),
+            SID_NAME_USE(1) => Ok(Self::User),
+            SID_NAME_USE(2) => Ok(Self::Group),
+            SID_NAME_USE(3) => Ok(Self::Domain),
+            SID_NAME_USE(4) => Ok(Self::Alias),
+            SID_NAME_USE(5) => Ok(Self::WellKnownGroup),
+            SID_NAME_USE(6) => Ok(Self::DeletedAccount),
+            SID_NAME_USE(7) => Ok(Self::Invalid),
+            SID_NAME_USE(8) => Ok(Self::Unknown),
+            SID_NAME_USE(9) => Ok(Self::Computer),
+            SID_NAME_USE(10) => Ok(Self::Label),
+            SID_NAME_USE(11) => Ok(Self::LogonSession),
             _ => Err(InvalidUserProperty::SidType(value.0)),
         }
     }
@@ -53,17 +53,17 @@ impl TryFrom<SID_NAME_USE> for SidType {
 impl From<SidType> for SID_NAME_USE {
     fn from(value: SidType) -> Self {
         match value {
-            SidType::User => SID_NAME_USE(1),
-            SidType::Group => SID_NAME_USE(2),
-            SidType::Domain => SID_NAME_USE(3),
-            SidType::Alias => SID_NAME_USE(4),
-            SidType::WellKnownGroup => SID_NAME_USE(5),
-            SidType::DeletedAccount => SID_NAME_USE(6),
-            SidType::Invalid => SID_NAME_USE(7),
-            SidType::Unknown => SID_NAME_USE(8),
-            SidType::Computer => SID_NAME_USE(9),
-            SidType::Label => SID_NAME_USE(10),
-            SidType::LogonSession => SID_NAME_USE(11),
+            SidType::User => Self(1),
+            SidType::Group => Self(2),
+            SidType::Domain => Self(3),
+            SidType::Alias => Self(4),
+            SidType::WellKnownGroup => Self(5),
+            SidType::DeletedAccount => Self(6),
+            SidType::Invalid => Self(7),
+            SidType::Unknown => Self(8),
+            SidType::Computer => Self(9),
+            SidType::Label => Self(10),
+            SidType::LogonSession => Self(11),
         }
     }
 }
@@ -91,7 +91,7 @@ mod tests {
         ];
 
         for (index, expected_enum) in expected.into_iter().enumerate() {
-            let raw_value = (index + 1) as i32;
+            let raw_value = i32::try_from(index + 1).expect("Expected index to fit in i32");
             let raw = SID_NAME_USE(raw_value);
             let parsed = SidType::try_from(raw).expect("Expected valid SID_NAME_USE value");
             assert_eq!(parsed, expected_enum, "Unexpected SidType variant");

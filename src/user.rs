@@ -13,7 +13,12 @@ use windows::{
 
 use crate::{
     error::WindowsUsersError,
-    utils::{into_hashset, option_to_wide, psid_to_string, to_wide},
+    user::types::user_auth_flags::ToUserAuthFlags,
+    utils::{
+        IntoDuration, PWSTRExt, ToWideString, ToWideStringOption, TryIntoDateTime, into_hashset,
+        psid_to_string,
+        times::{TryIntoSeconds, TryIntoTimestamp},
+    },
 };
 
 pub use self::types::{LogonHours, SidType, UserAccountFlags, UserAuthFlags, UserPrivilege};
@@ -24,7 +29,7 @@ pub mod types;
 const DOMAIN_GROUP_RID_USERS: u32 = 513;
 
 /// Represents detailed information about a Windows user account.
-/// Rust-native version of USER_INFO_3, with appropriate types and semantics.
+/// Rust-native version of `USER_INFO_3`, with appropriate types and semantics.
 #[derive(Debug, Clone, Getters, Setters, TypedBuilder)]
 pub struct User {
     /// User account name (up to 20 characters, no forbidden symbols).
@@ -46,7 +51,7 @@ pub struct User {
     /// manually assigning a privilege level on the user itself.
     ///
     /// To grant or modify a user's permissions, add them to the appropriate
-    /// group using [`crate::add_user_to_group`].
+    /// group using [`crate::add_users_to_group`].
     #[builder(default, setter(skip))]
     #[getset(get = "pub", set = "pub")]
     priv_level: UserPrivilege,
@@ -170,63 +175,33 @@ impl TryFrom<&USER_INFO_3> for User {
                     None
                 },
                 priv_level: user.usri3_priv.try_into()?,
-                home_dir: user
-                    .usri3_home_dir
-                    .to_string()
-                    .ok()
-                    .filter(|s| !s.is_empty()),
-                comment: user
-                    .usri3_comment
-                    .to_string()
-                    .ok()
-                    .filter(|s| !s.is_empty()),
+                home_dir: user.usri3_home_dir.to_optional_string(),
+                comment: user.usri3_comment.to_optional_string(),
                 flags: user.usri3_flags.try_into()?,
-                script_path: user
-                    .usri3_script_path
-                    .to_string()
-                    .ok()
-                    .filter(|s| !s.is_empty()),
+                script_path: user.usri3_script_path.to_optional_string(),
                 auth_flags: user
                     .usri3_auth_flags
                     .try_into()
                     .ok()
                     .filter(|f: &UserAuthFlags| !f.is_empty()),
-                full_name: user
-                    .usri3_full_name
-                    .to_string()
-                    .ok()
-                    .filter(|s| !s.is_empty()),
-                user_comment: user
-                    .usri3_usr_comment
-                    .to_string()
-                    .ok()
-                    .filter(|s| !s.is_empty()),
-                parms: user.usri3_parms.to_string().ok().filter(|s| !s.is_empty()),
-                workstations: user
-                    .usri3_workstations
-                    .to_string()
-                    .map(|s| {
-                        s.split(',')
-                            .filter(|s| !s.is_empty())
-                            .map(String::from)
-                            .collect()
-                    })
-                    .ok()
-                    .filter(|h: &HashSet<String>| !h.is_empty()),
+                full_name: user.usri3_full_name.to_optional_string(),
+                user_comment: user.usri3_usr_comment.to_optional_string(),
+                parms: user.usri3_parms.to_optional_string(),
+                workstations: user.usri3_workstations.to_optional_hashset(),
                 last_logon: if user.usri3_last_logon != 0 {
-                    DateTime::<Utc>::from_timestamp(user.usri3_last_logon.into(), 0)
+                    Some(user.usri3_last_logon.try_into_date_time()?)
                 } else {
                     None
                 },
                 last_logoff: if user.usri3_last_logoff != 0 {
-                    DateTime::<Utc>::from_timestamp(user.usri3_last_logoff.into(), 0)
+                    Some(user.usri3_last_logoff.try_into_date_time()?)
                 } else {
                     None
                 },
-                acct_expires: if user.usri3_acct_expires != u32::MAX {
-                    DateTime::<Utc>::from_timestamp(user.usri3_acct_expires.into(), 0)
-                } else {
+                acct_expires: if user.usri3_acct_expires == u32::MAX {
                     None
+                } else {
+                    Some(user.usri3_acct_expires.try_into_date_time()?)
                 },
                 max_storage: user.usri3_max_storage.into(),
                 units_per_week: user.usri3_units_per_week.into(),
@@ -237,11 +212,7 @@ impl TryFrom<&USER_INFO_3> for User {
                 },
                 bad_pw_count: user.usri3_bad_pw_count.into(),
                 num_logons: user.usri3_num_logons.into(),
-                logon_server: user
-                    .usri3_logon_server
-                    .to_string()
-                    .ok()
-                    .filter(|s| !s.is_empty()),
+                logon_server: user.usri3_logon_server.to_optional_string(),
                 country_code: if user.usri3_country_code != 0 {
                     Some(user.usri3_country_code)
                 } else {
@@ -255,16 +226,8 @@ impl TryFrom<&USER_INFO_3> for User {
                 user_id: user.usri3_user_id.into(),
                 user_sid: None,
                 primary_group_id: user.usri3_primary_group_id.into(),
-                profile: user
-                    .usri3_profile
-                    .to_string()
-                    .ok()
-                    .filter(|s| !s.is_empty()),
-                home_dir_drive: user
-                    .usri3_home_dir_drive
-                    .to_string()
-                    .ok()
-                    .filter(|s| !s.is_empty()),
+                profile: user.usri3_profile.to_optional_string(),
+                home_dir_drive: user.usri3_home_dir_drive.to_optional_string(),
                 password_expired: (user.usri3_password_expired != 0).into(),
             })
         }
@@ -280,68 +243,34 @@ impl TryFrom<&USER_INFO_4> for User {
                 name: user.usri4_name.to_string()?,
                 password: None,
                 password_age: if user.usri4_password_age != 0 {
-                    Some(Duration::from_secs(user.usri4_password_age.into()))
+                    Some(user.usri4_password_age.into_duration())
                 } else {
                     None
                 },
                 priv_level: user.usri4_priv.try_into()?,
-                home_dir: user
-                    .usri4_home_dir
-                    .to_string()
-                    .ok()
-                    .filter(|s| !s.is_empty()),
-                comment: user
-                    .usri4_comment
-                    .to_string()
-                    .ok()
-                    .filter(|s| !s.is_empty()),
+                home_dir: user.usri4_home_dir.to_optional_string(),
+                comment: user.usri4_comment.to_optional_string(),
                 flags: user.usri4_flags.try_into()?,
-                script_path: user
-                    .usri4_script_path
-                    .to_string()
-                    .ok()
-                    .filter(|s| !s.is_empty()),
-                auth_flags: user
-                    .usri4_auth_flags
-                    .try_into()
-                    .ok()
-                    .filter(|f: &UserAuthFlags| !f.is_empty()),
-                full_name: user
-                    .usri4_full_name
-                    .to_string()
-                    .ok()
-                    .filter(|s| !s.is_empty()),
-                user_comment: user
-                    .usri4_usr_comment
-                    .to_string()
-                    .ok()
-                    .filter(|s| !s.is_empty()),
-                parms: user.usri4_parms.to_string().ok().filter(|s| !s.is_empty()),
-                workstations: user
-                    .usri4_workstations
-                    .to_string()
-                    .map(|s| {
-                        s.split(',')
-                            .filter(|s| !s.is_empty())
-                            .map(String::from)
-                            .collect()
-                    })
-                    .ok()
-                    .filter(|h: &HashSet<String>| !h.is_empty()),
+                script_path: user.usri4_script_path.to_optional_string(),
+                auth_flags: user.usri4_auth_flags.to_auth_flags(),
+                full_name: user.usri4_full_name.to_optional_string(),
+                user_comment: user.usri4_usr_comment.to_optional_string(),
+                parms: user.usri4_parms.to_optional_string(),
+                workstations: user.usri4_workstations.to_optional_hashset(),
                 last_logon: if user.usri4_last_logon != 0 {
-                    DateTime::<Utc>::from_timestamp(user.usri4_last_logon.into(), 0)
+                    Some(user.usri4_last_logon.try_into_date_time()?)
                 } else {
                     None
                 },
                 last_logoff: if user.usri4_last_logoff != 0 {
-                    DateTime::<Utc>::from_timestamp(user.usri4_last_logoff.into(), 0)
+                    Some(user.usri4_last_logoff.try_into_date_time()?)
                 } else {
                     None
                 },
-                acct_expires: if user.usri4_acct_expires != u32::MAX {
-                    DateTime::<Utc>::from_timestamp(user.usri4_acct_expires.into(), 0)
-                } else {
+                acct_expires: if user.usri4_acct_expires == u32::MAX {
                     None
+                } else {
+                    Some(user.usri4_acct_expires.try_into_date_time()?)
                 },
                 max_storage: user.usri4_max_storage.into(),
                 units_per_week: user.usri4_units_per_week.into(),
@@ -352,11 +281,7 @@ impl TryFrom<&USER_INFO_4> for User {
                 },
                 bad_pw_count: user.usri4_bad_pw_count.into(),
                 num_logons: user.usri4_num_logons.into(),
-                logon_server: user
-                    .usri4_logon_server
-                    .to_string()
-                    .ok()
-                    .filter(|s| !s.is_empty()),
+                logon_server: user.usri4_logon_server.to_optional_string(),
                 country_code: if user.usri4_country_code != 0 {
                     Some(user.usri4_country_code)
                 } else {
@@ -370,16 +295,8 @@ impl TryFrom<&USER_INFO_4> for User {
                 user_id: None,
                 user_sid: Some(psid_to_string(user.usri4_user_sid)?),
                 primary_group_id: user.usri4_primary_group_id.into(),
-                profile: user
-                    .usri4_profile
-                    .to_string()
-                    .ok()
-                    .filter(|s| !s.is_empty()),
-                home_dir_drive: user
-                    .usri4_home_dir_drive
-                    .to_string()
-                    .ok()
-                    .filter(|s| !s.is_empty()),
+                profile: user.usri4_profile.to_optional_string(),
+                home_dir_drive: user.usri4_home_dir_drive.to_optional_string(),
                 password_expired: (user.usri4_password_expired != 0).into(),
             })
         }
@@ -400,25 +317,19 @@ impl User {
         let mut buffer_storage: Vec<Vec<u8>> = Vec::new();
 
         let push_string = |s: Option<Vec<u16>>, storage: &mut Vec<Vec<u16>>| -> PWSTR {
-            match s {
-                Some(mut vec) => {
-                    let ptr = vec.as_mut_ptr();
-                    storage.push(vec);
-                    PWSTR(ptr)
-                }
-                None => PWSTR::null(),
-            }
+            s.map_or_else(PWSTR::null, |mut vec| {
+                let ptr = vec.as_mut_ptr();
+                storage.push(vec);
+                PWSTR(ptr)
+            })
         };
 
         let push_buffer = |b: Option<Vec<u8>>, storage: &mut Vec<Vec<u8>>| -> *mut u8 {
-            match b {
-                Some(mut vec) => {
-                    let ptr = vec.as_mut_ptr();
-                    storage.push(vec);
-                    ptr
-                }
-                None => std::ptr::null_mut(),
-            }
+            b.map_or(std::ptr::null_mut(), |mut vec| {
+                let ptr = vec.as_mut_ptr();
+                storage.push(vec);
+                ptr
+            })
         };
 
         let workstations_str = self
@@ -428,56 +339,68 @@ impl User {
             .unwrap_or_default();
 
         let user_info = USER_INFO_4 {
-            usri4_name: push_string(Some(to_wide(&self.name)), &mut string_storage),
-            usri4_password: push_string(option_to_wide(&self.password), &mut string_storage),
+            usri4_name: push_string(Some(self.name.to_wide()), &mut string_storage),
+            usri4_password: push_string(
+                self.password.as_ref().to_wide_option(),
+                &mut string_storage,
+            ),
             usri4_password_age: self
                 .password_age
-                .map(|d| d.as_secs() as u32)
+                .map(|d| d.try_into_seconds().unwrap_or_default())
                 .unwrap_or_default(),
             usri4_priv: self.priv_level.into(),
-            usri4_home_dir: push_string(option_to_wide(&self.home_dir), &mut string_storage),
-            usri4_comment: push_string(option_to_wide(&self.comment), &mut string_storage),
+            usri4_home_dir: push_string(
+                self.home_dir.as_ref().to_wide_option(),
+                &mut string_storage,
+            ),
+            usri4_comment: push_string(self.comment.as_ref().to_wide_option(), &mut string_storage),
             usri4_flags: self.flags.into(),
-            usri4_script_path: push_string(option_to_wide(&self.script_path), &mut string_storage),
+            usri4_script_path: push_string(
+                self.script_path.as_ref().to_wide_option(),
+                &mut string_storage,
+            ),
             usri4_auth_flags: self.auth_flags.map(AF_OP::from).unwrap_or_default(),
-            usri4_full_name: push_string(option_to_wide(&self.full_name), &mut string_storage),
-            usri4_usr_comment: push_string(option_to_wide(&self.user_comment), &mut string_storage),
-            usri4_parms: push_string(option_to_wide(&self.parms), &mut string_storage),
-            usri4_workstations: push_string(Some(to_wide(&workstations_str)), &mut string_storage),
+            usri4_full_name: push_string(
+                self.full_name.as_ref().to_wide_option(),
+                &mut string_storage,
+            ),
+            usri4_usr_comment: push_string(
+                self.user_comment.as_ref().to_wide_option(),
+                &mut string_storage,
+            ),
+            usri4_parms: push_string(self.parms.as_ref().to_wide_option(), &mut string_storage),
+            usri4_workstations: push_string(Some(workstations_str.to_wide()), &mut string_storage),
             usri4_last_logon: self
                 .last_logon
-                .map(|d| d.timestamp() as u32)
-                .unwrap_or_default(),
+                .map_or(u32::MAX, |d| d.try_into_timestamp().unwrap_or_default()),
             usri4_last_logoff: self
                 .last_logoff
-                .map(|d| d.timestamp() as u32)
-                .unwrap_or_default(),
+                .map_or(u32::MAX, |d| d.try_into_timestamp().unwrap_or_default()),
             usri4_acct_expires: self
                 .acct_expires
-                .map(|d| d.timestamp() as u32)
-                .unwrap_or(u32::MAX),
+                .map_or(u32::MAX, |d| d.try_into_timestamp().unwrap_or_default()),
             usri4_max_storage: self.max_storage.unwrap_or_default(),
             usri4_units_per_week: self.units_per_week.unwrap_or(LogonHours::UNITS_PER_WEEK),
             usri4_logon_hours: push_buffer(
-                self.logon_hours.clone().map(|lh| lh.into()),
+                self.logon_hours.clone().map(Into::into),
                 &mut buffer_storage,
             ),
             usri4_bad_pw_count: self.bad_pw_count.unwrap_or_default(),
             usri4_num_logons: self.num_logons.unwrap_or_default(),
             usri4_logon_server: push_string(
-                option_to_wide(&self.logon_server),
+                self.logon_server.as_ref().to_wide_option(),
                 &mut string_storage,
             ),
             usri4_country_code: self.country_code.unwrap_or_default(),
             usri4_code_page: self.code_page.unwrap_or_default(),
-            usri4_user_sid: PSID(std::ptr::null_mut()), // à remplir si besoin
+            usri4_user_sid: PSID(std::ptr::null_mut()),
             usri4_primary_group_id: self.primary_group_id.unwrap_or(DOMAIN_GROUP_RID_USERS),
-            usri4_profile: push_string(option_to_wide(&self.profile), &mut string_storage),
+            usri4_profile: push_string(self.profile.as_ref().to_wide_option(), &mut string_storage),
             usri4_home_dir_drive: push_string(
-                option_to_wide(&self.home_dir_drive),
+                self.home_dir_drive.as_ref().to_wide_option(),
                 &mut string_storage,
             ),
-            usri4_password_expired: self.password_expired.unwrap_or(false) as u32,
+            usri4_password_expired: u32::from(self.password_expired.unwrap_or(false)),
         };
 
         UserInfo4Buffer {

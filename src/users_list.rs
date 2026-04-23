@@ -6,7 +6,7 @@ use windows::{
 use crate::{
     User,
     error::WindowsUsersError,
-    utils::{net_api_result, to_wide},
+    utils::{ToWideString, net_api_result},
 };
 
 pub use self::user_filter_flag::UserFilterFlags;
@@ -34,7 +34,7 @@ pub fn count_users(
     filter: UserFilterFlags,
 ) -> Result<u32, WindowsUsersError> {
     let server_name = server_name
-        .map(|s| PCWSTR(to_wide(s).as_ptr()))
+        .map(|s| PCWSTR(s.to_wide().as_ptr()))
         .unwrap_or_default();
 
     let mut buffer = std::ptr::null_mut();
@@ -47,11 +47,11 @@ pub fn count_users(
             server_name,
             3,
             filter.into(),
-            &mut buffer,
+            &raw mut buffer,
             u32::MAX,
-            &mut entries_read,
-            &mut total_entries,
-            Some(&mut resume_handle),
+            &raw mut entries_read,
+            &raw mut total_entries,
+            Some(&raw mut resume_handle),
         )
     };
 
@@ -89,7 +89,7 @@ pub fn list_users(
     filter: UserFilterFlags,
 ) -> Result<Vec<User>, WindowsUsersError> {
     let server_name = server_name
-        .map(|s| PCWSTR(to_wide(s).as_ptr()))
+        .map(|s| PCWSTR(s.to_wide().as_ptr()))
         .unwrap_or_default();
 
     let mut buffer = std::ptr::null_mut();
@@ -102,11 +102,11 @@ pub fn list_users(
             server_name,
             3,
             filter.into(),
-            &mut buffer,
+            &raw mut buffer,
             u32::MAX,
-            &mut entries_read,
-            &mut total_entries,
-            Some(&mut resume_handle),
+            &raw mut entries_read,
+            &raw mut total_entries,
+            Some(&raw mut resume_handle),
         )
     };
 

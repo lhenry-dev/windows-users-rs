@@ -14,8 +14,8 @@ mod utils;
 
 pub use error::WindowsUsersError;
 pub use groups::{
-    Group, GroupMember, add_user_to_group, list_group_members, list_groups, remove_user_from_group,
-    sid::Sid, sid::well_known_sid,
+    Group, GroupMember, add_users_to_group, list_group_members, list_groups,
+    remove_users_from_group, sid::Sid, sid::well_known_sid,
 };
 pub use user::{
     LogonHours, SidType, User, UserAccountFlags, UserAuthFlags, UserPrivilege, UserUpdate,

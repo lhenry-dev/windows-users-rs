@@ -41,7 +41,7 @@ pub enum WindowsUsersError {
     UserTypeError(#[from] InvalidUserProperty),
 }
 
-#[derive(Debug, Error, PartialEq)]
+#[derive(Debug, Error, PartialEq, Eq)]
 pub enum ParmnumError {
     #[error("USER_NAME_PARMNUM (usri*_name)")]
     UserName,

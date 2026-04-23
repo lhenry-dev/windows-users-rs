@@ -6,7 +6,7 @@ use windows::{
     core::{PCWSTR, PWSTR},
 };
 
-use crate::{SidType, WindowsUsersError, utils::convert::to_wide};
+use crate::{SidType, WindowsUsersError, utils::ToWideString};
 
 #[cfg(test)]
 use {crate::utils::sid::psid_to_string, windows::Win32::Security::LookupAccountNameW};
@@ -20,7 +20,7 @@ pub fn lookup_account_sid(
     psid: PSID,
 ) -> Result<(String, String, SidType), WindowsUsersError> {
     let server_name = server_name
-        .map(|s| PCWSTR(to_wide(s).as_ptr()))
+        .map(|s| PCWSTR(s.to_wide().as_ptr()))
         .unwrap_or_default();
     let mut name_len = 256;
     let mut domain_len = 256;
@@ -35,15 +35,15 @@ pub fn lookup_account_sid(
                 server_name,
                 psid,
                 Some(PWSTR(name.as_mut_ptr())),
-                &mut name_len,
+                &raw mut name_len,
                 Some(PWSTR(domain.as_mut_ptr())),
-                &mut domain_len,
-                &mut sid_name_use,
+                &raw mut domain_len,
+                &raw mut sid_name_use,
             )
         };
 
         match result {
-            Ok(_) => {}
+            Ok(()) => {}
             Err(e) if is_insufficient_buffer(&e) => continue,
             Err(e) => return Err(WindowsUsersError::WindowsError(e)),
         }
@@ -62,8 +62,10 @@ pub fn lookup_account_name(
     server_name: Option<&str>,
     account_name: &str,
 ) -> Result<(String, String, SidType), WindowsUsersError> {
+    use crate::utils::ToWideString;
+
     let server_name = server_name
-        .map(|s| PCWSTR(to_wide(s).as_ptr()))
+        .map(|s| PCWSTR(s.to_wide().as_ptr()))
         .unwrap_or_default();
 
     let mut sid_len = 256;
@@ -71,7 +73,7 @@ pub fn lookup_account_name(
 
     loop {
         let mut sid_buffer = vec![0u8; sid_len as usize];
-        let psid = PSID(sid_buffer.as_mut_ptr() as *mut _);
+        let psid = PSID(sid_buffer.as_mut_ptr().cast());
 
         let mut domain = vec![0; domain_len as usize];
         let mut sid_name_use = SID_NAME_USE(0);
@@ -79,17 +81,17 @@ pub fn lookup_account_name(
         let result = unsafe {
             LookupAccountNameW(
                 server_name,
-                PCWSTR(to_wide(account_name).as_ptr()),
+                PCWSTR(account_name.to_wide().as_ptr()),
                 Some(psid),
-                &mut sid_len,
+                &raw mut sid_len,
                 Some(PWSTR(domain.as_mut_ptr())),
-                &mut domain_len,
-                &mut sid_name_use,
+                &raw mut domain_len,
+                &raw mut sid_name_use,
             )
         };
 
         match result {
-            Ok(_) => {
+            Ok(()) => {
                 let str_sid = psid_to_string(psid)?;
 
                 return Ok((
@@ -98,7 +100,7 @@ pub fn lookup_account_name(
                     sid_name_use.try_into()?,
                 ));
             }
-            Err(e) if is_insufficient_buffer(&e) => continue,
+            Err(e) if is_insufficient_buffer(&e) => {}
             Err(e) => return Err(WindowsUsersError::WindowsError(e)),
         }
     }
