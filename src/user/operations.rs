@@ -31,7 +31,7 @@ impl User {
     ///
     /// This function checks whether the user already exists on the target machine.
     /// If the user is found, the function does nothing and returns `Ok(false)`.
-    /// Otherwise, it creates the account using [`add_user`] and returns `Ok(true)`.
+    /// Otherwise, it creates the account using [`UserManager::add_user`] and returns `Ok(true)`.
     ///
     /// # Arguments
     ///
@@ -62,8 +62,8 @@ impl User {
     ///
     /// This function implements a **create-or-update** behavior:
     ///
-    /// - If the user does not exist, it is created using [`add_user`]
-    /// - If the user already exists, it is updated using [`update_user`]
+    /// - If the user does not exist, it is created using [`UserManager::add_user`]
+    /// - If the user already exists, it is updated using [`UserManager::update_user`]
     ///
     /// # Arguments
     ///
@@ -155,9 +155,6 @@ impl User {
         if let Some(password) = &settings.password {
             self.password = Some(password.clone());
         }
-        // if let Some(priv_level) = &settings.priv_level {
-        //     self.priv_level = *priv_level;
-        // }
         if let Some(home_dir) = &settings.home_dir {
             self.home_dir = Some(home_dir.clone());
         }
@@ -170,9 +167,6 @@ impl User {
         if let Some(script_path) = &settings.script_path {
             self.script_path = Some(script_path.clone());
         }
-        // if let Some(auth_flags) = &settings.auth_flags {
-        //     self.auth_flags = Some(*auth_flags);
-        // }
         if let Some(full_name) = &settings.full_name {
             self.full_name = Some(full_name.clone());
         }

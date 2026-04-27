@@ -64,7 +64,7 @@ impl UserManager {
     ///
     /// This function checks whether the user already exists on the target machine.
     /// If the user is found, the function does nothing and returns `Ok(false)`.
-    /// Otherwise, it creates the account using [`add_user`] and returns `Ok(true)`.
+    /// Otherwise, it creates the account using [`UserManager::add_user`] and returns `Ok(true)`.
     ///
     /// # Arguments
     ///
@@ -99,8 +99,8 @@ impl UserManager {
     ///
     /// This function implements a **create-or-update** behavior:
     ///
-    /// - If the user does not exist, it is created using [`add_user`]
-    /// - If the user already exists, it is updated using [`update_user`]
+    /// - If the user does not exist, it is created using [`UserManager::add_user`]
+    /// - If the user already exists, it is updated using [`UserManager::update_user`]
     ///
     /// # Arguments
     ///

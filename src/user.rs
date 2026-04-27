@@ -50,7 +50,7 @@ pub struct User {
     /// manually assigning a privilege level on the user itself.
     ///
     /// To grant or modify a user's permissions, add them to the appropriate
-    /// group using [`crate::add_users_to_group`].
+    /// group using [`crate::UserManager::add_users_to_group`].
     #[builder(default, setter(skip))]
     #[getset(get = "pub", set = "pub")]
     priv_level: UserPrivilege,
