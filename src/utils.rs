@@ -1,6 +1,5 @@
 use std::{collections::HashSet, hash::Hash};
 
-pub use account_lookup::*;
 pub use pwstr::*;
 pub use sid::*;
 pub use times::*;
@@ -20,4 +19,8 @@ where
     U: Eq + Hash,
 {
     items.into_iter().map(Into::into).collect()
+}
+
+pub fn some_if<T>(cond: bool, value: T) -> Option<T> {
+    if cond { Some(value) } else { None }
 }

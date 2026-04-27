@@ -1,6 +1,4 @@
-use windows_users::{
-    add_users_to_group, list_group_members, list_groups, remove_users_from_group, well_known_sid,
-};
+use windows_users::{UserManager, well_known_sid};
 
 use crate::helpers::{
     auto_remove_user::AutoRemoveUser, build::build_full_user, constants::USER_NAME,
@@ -10,7 +8,8 @@ mod helpers;
 
 #[test]
 fn test_list_groups_returns_non_empty_result() {
-    let groups = list_groups(None).expect("Failed to list groups");
+    let user_manager = UserManager::local();
+    let groups = user_manager.list_groups().expect("Failed to list groups");
 
     assert!(!groups.is_empty(), "Expected at least one local group");
     assert!(
@@ -21,11 +20,12 @@ fn test_list_groups_returns_non_empty_result() {
 
 #[test]
 fn test_list_group_members_returns_valid_sid_type_range() {
-    let groups = list_groups(None).expect("Failed to list groups");
+    let user_manager = UserManager::local();
+    let groups = user_manager.list_groups().expect("Failed to list groups");
 
     let mut checked_any_member = false;
     for group in groups {
-        let members = match list_group_members(None, group.name()) {
+        let members = match user_manager.list_group_members(group.name()) {
             Ok(members) => members,
             Err(_) => continue,
         };
@@ -55,17 +55,21 @@ fn test_list_group_members_returns_valid_sid_type_range() {
 
 #[test]
 fn test_add_and_remove_user_from_group_roundtrip() {
+    let user_manager = UserManager::local();
     let user_name = format!("{USER_NAME}_g");
     let user = build_full_user(&user_name);
-    let _guard = AutoRemoveUser::add(None, &user).expect("Failed to add user");
+    let _guard = AutoRemoveUser::add(&user_manager, &user).expect("Failed to add user");
 
-    let group_name = well_known_sid::GUESTS.name().unwrap();
+    let group_name = well_known_sid::GUESTS.name(&user_manager).unwrap();
 
-    let _ = remove_users_from_group(None, &[&user_name], &group_name);
-    add_users_to_group(None, &[&user_name], &group_name).expect("Failed to add user to group");
+    let _ = user_manager.remove_users_from_group(&[&user_name], &group_name);
+    user_manager
+        .add_users_to_group(&[&user_name], &group_name)
+        .expect("Failed to add user to group");
 
-    let members_after_add =
-        list_group_members(None, &group_name).expect("Failed to list group members after add");
+    let members_after_add = user_manager
+        .list_group_members(&group_name)
+        .expect("Failed to list group members after add");
     assert!(
         members_after_add
             .iter()
@@ -73,10 +77,12 @@ fn test_add_and_remove_user_from_group_roundtrip() {
         "Expected user to be present in group after add"
     );
 
-    remove_users_from_group(None, &[&user_name], &group_name)
+    user_manager
+        .remove_users_from_group(&[&user_name], &group_name)
         .expect("Failed to remove user from group");
-    let members_after_remove =
-        list_group_members(None, &group_name).expect("Failed to list group members after remove");
+    let members_after_remove = user_manager
+        .list_group_members(&group_name)
+        .expect("Failed to list group members after remove");
     assert!(
         !members_after_remove
             .iter()

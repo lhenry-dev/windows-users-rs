@@ -34,16 +34,6 @@ impl From<UserAuthFlags> for AF_OP {
     }
 }
 
-pub trait ToUserAuthFlags {
-    fn to_auth_flags(self) -> Option<UserAuthFlags>;
-}
-
-impl ToUserAuthFlags for AF_OP {
-    fn to_auth_flags(self) -> Option<UserAuthFlags> {
-        UserAuthFlags::try_from(self).ok().filter(|f| !f.is_empty())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

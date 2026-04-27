@@ -1,7 +1,4 @@
-use crate::{
-    error::WindowsUsersError,
-    utils::{lookup_account_sid, str_to_psid},
-};
+use crate::{UserManager, error::WindowsUsersError, utils::str_to_psid};
 
 pub mod well_known_sid;
 
@@ -42,8 +39,10 @@ impl Sid {
     /// - The SID is invalid or malformed
     /// - The lookup operation fails (`LookupAccountSid` failure)
     /// - The SID cannot be resolved to a known account
-    pub fn name(&self) -> Result<String, WindowsUsersError> {
-        lookup_account_sid(None, str_to_psid(self.sid)?.as_psid()).map(|(name, _, _)| name)
+    pub fn name(&self, user_manager: &UserManager) -> Result<String, WindowsUsersError> {
+        user_manager
+            .lookup_account_sid(str_to_psid(self.sid)?.as_psid())
+            .map(|(name, _, _)| name)
     }
 }
 
