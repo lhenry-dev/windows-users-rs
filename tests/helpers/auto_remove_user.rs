@@ -1,25 +1,22 @@
-use windows_users::{User, WindowsUsersError};
+use windows_users::{User, UserManager, UserUpdate, WindowsUsersError};
 
 #[must_use]
-pub struct AutoRemoveUserResult {
-    pub _guard: AutoRemoveUser,
+pub struct AutoRemoveUserResult<'a> {
+    pub _guard: AutoRemoveUser<'a>,
     pub added_or_changed: bool,
 }
 
-impl AutoRemoveUser {
+impl<'a> AutoRemoveUser<'a> {
     fn make_result(
-        server_name: Option<&str>,
+        mgr: &'a UserManager,
         user: &User,
         should_remove: bool,
-    ) -> AutoRemoveUserResult {
-        assert!(
-            user.exists(server_name),
-            "User should exist after operation"
-        );
+    ) -> AutoRemoveUserResult<'a> {
+        assert!(user.exists(mgr), "User should exist after operation");
 
         AutoRemoveUserResult {
             _guard: AutoRemoveUser {
-                server_name: server_name.map(|s| s.into()),
+                mgr,
                 user: user.clone(),
                 should_remove,
             },
@@ -28,48 +25,47 @@ impl AutoRemoveUser {
     }
 }
 
-pub struct AutoRemoveUser {
-    pub server_name: Option<String>,
-    pub user: User,
+pub struct AutoRemoveUser<'a> {
+    mgr: &'a UserManager,
+    user: User,
     should_remove: bool,
 }
 
-impl Drop for AutoRemoveUser {
+impl Drop for AutoRemoveUser<'_> {
     fn drop(&mut self) {
         if self.should_remove {
             self.user
                 .clone()
-                .delete(self.server_name.as_deref())
+                .delete(self.mgr)
                 .unwrap_or_else(|_| panic!("Failed to remove user '{}'", self.user.name()));
         }
     }
 }
 
-impl AutoRemoveUser {
+impl<'a> AutoRemoveUser<'a> {
     pub fn add(
-        server_name: Option<&str>,
+        mgr: &'a UserManager,
         user: &User,
-    ) -> Result<AutoRemoveUserResult, WindowsUsersError> {
-        user.add(server_name)?;
-
-        Ok(Self::make_result(server_name, user, true))
+    ) -> Result<AutoRemoveUserResult<'a>, WindowsUsersError> {
+        user.add(mgr)?;
+        Ok(Self::make_result(mgr, user, true))
     }
 
     pub fn add_if_not_exists(
-        server_name: Option<&str>,
+        mgr: &'a UserManager,
         user: &User,
-    ) -> Result<AutoRemoveUserResult, WindowsUsersError> {
-        let added = user.add_if_not_exists(server_name)?;
+    ) -> Result<AutoRemoveUserResult<'a>, WindowsUsersError> {
+        let added = user.add_if_not_exists(mgr)?;
 
-        Ok(Self::make_result(server_name, user, added))
+        Ok(Self::make_result(mgr, user, added))
     }
 
     pub fn add_or_update(
-        server_name: Option<&str>,
+        mgr: &'a UserManager,
         user: &User,
-    ) -> Result<AutoRemoveUserResult, WindowsUsersError> {
-        let changed = user.add_or_update(server_name)?;
+    ) -> Result<AutoRemoveUserResult<'a>, WindowsUsersError> {
+        let changed = user.add_or_update(mgr)?;
 
-        Ok(Self::make_result(server_name, user, changed))
+        Ok(Self::make_result(mgr, user, changed))
     }
 }

@@ -13,10 +13,9 @@ use windows::{
 
 use crate::{
     error::WindowsUsersError,
-    user::types::user_auth_flags::ToUserAuthFlags,
     utils::{
         IntoDuration, PWSTRExt, ToWideString, ToWideStringOption, TryIntoDateTime, into_hashset,
-        psid_to_string,
+        psid_to_string, some_if,
         times::{TryIntoSeconds, TryIntoTimestamp},
     },
 };
@@ -51,7 +50,7 @@ pub struct User {
     /// manually assigning a privilege level on the user itself.
     ///
     /// To grant or modify a user's permissions, add them to the appropriate
-    /// group using [`crate::add_users_to_group`].
+    /// group using [`crate::UserManager::add_users_to_group`].
     #[builder(default, setter(skip))]
     #[getset(get = "pub", set = "pub")]
     priv_level: UserPrivilege,
@@ -168,61 +167,44 @@ impl TryFrom<&USER_INFO_3> for User {
         unsafe {
             Ok(Self {
                 name: user.usri3_name.to_string()?,
-                password: None, // Password is not retrievable
-                password_age: if user.usri3_password_age != 0 {
-                    Some(Duration::from_secs(user.usri3_password_age.into()))
-                } else {
-                    None
-                },
+                password: None,
+                password_age: some_if(
+                    user.usri3_password_age != 0,
+                    Duration::from_secs(user.usri3_password_age.into()),
+                ),
                 priv_level: user.usri3_priv.try_into()?,
                 home_dir: user.usri3_home_dir.to_optional_string(),
                 comment: user.usri3_comment.to_optional_string(),
                 flags: user.usri3_flags.try_into()?,
                 script_path: user.usri3_script_path.to_optional_string(),
-                auth_flags: user
-                    .usri3_auth_flags
-                    .try_into()
-                    .ok()
-                    .filter(|f: &UserAuthFlags| !f.is_empty()),
+                auth_flags: user.usri3_auth_flags.try_into().ok(),
                 full_name: user.usri3_full_name.to_optional_string(),
                 user_comment: user.usri3_usr_comment.to_optional_string(),
                 parms: user.usri3_parms.to_optional_string(),
                 workstations: user.usri3_workstations.to_optional_hashset(),
-                last_logon: if user.usri3_last_logon != 0 {
-                    Some(user.usri3_last_logon.try_into_date_time()?)
-                } else {
-                    None
-                },
-                last_logoff: if user.usri3_last_logoff != 0 {
-                    Some(user.usri3_last_logoff.try_into_date_time()?)
-                } else {
-                    None
-                },
-                acct_expires: if user.usri3_acct_expires == u32::MAX {
-                    None
-                } else {
-                    Some(user.usri3_acct_expires.try_into_date_time()?)
-                },
+                last_logon: some_if(
+                    user.usri3_last_logon != 0,
+                    user.usri3_last_logon.try_into_date_time()?,
+                ),
+                last_logoff: some_if(
+                    user.usri3_last_logoff != 0,
+                    user.usri3_last_logoff.try_into_date_time()?,
+                ),
+                acct_expires: some_if(
+                    user.usri3_acct_expires != u32::MAX,
+                    user.usri3_acct_expires.try_into_date_time()?,
+                ),
                 max_storage: user.usri3_max_storage.into(),
                 units_per_week: user.usri3_units_per_week.into(),
-                logon_hours: if user.usri3_logon_hours.is_null() {
-                    None
-                } else {
-                    Some(user.usri3_logon_hours.into())
-                },
+                logon_hours: some_if(
+                    !user.usri3_logon_hours.is_null(),
+                    user.usri3_logon_hours.into(),
+                ),
                 bad_pw_count: user.usri3_bad_pw_count.into(),
                 num_logons: user.usri3_num_logons.into(),
                 logon_server: user.usri3_logon_server.to_optional_string(),
-                country_code: if user.usri3_country_code != 0 {
-                    Some(user.usri3_country_code)
-                } else {
-                    None
-                },
-                code_page: if user.usri3_code_page != 0 {
-                    Some(user.usri3_code_page)
-                } else {
-                    None
-                },
+                country_code: some_if(user.usri3_country_code != 0, user.usri3_country_code),
+                code_page: some_if(user.usri3_code_page != 0, user.usri3_code_page),
                 user_id: user.usri3_user_id.into(),
                 user_sid: None,
                 primary_group_id: user.usri3_primary_group_id.into(),
@@ -242,56 +224,43 @@ impl TryFrom<&USER_INFO_4> for User {
             Ok(Self {
                 name: user.usri4_name.to_string()?,
                 password: None,
-                password_age: if user.usri4_password_age != 0 {
-                    Some(user.usri4_password_age.into_duration())
-                } else {
-                    None
-                },
+                password_age: some_if(
+                    user.usri4_password_age != 0,
+                    user.usri4_password_age.into_duration(),
+                ),
                 priv_level: user.usri4_priv.try_into()?,
                 home_dir: user.usri4_home_dir.to_optional_string(),
                 comment: user.usri4_comment.to_optional_string(),
                 flags: user.usri4_flags.try_into()?,
                 script_path: user.usri4_script_path.to_optional_string(),
-                auth_flags: user.usri4_auth_flags.to_auth_flags(),
+                auth_flags: user.usri4_auth_flags.try_into().ok(),
                 full_name: user.usri4_full_name.to_optional_string(),
                 user_comment: user.usri4_usr_comment.to_optional_string(),
                 parms: user.usri4_parms.to_optional_string(),
                 workstations: user.usri4_workstations.to_optional_hashset(),
-                last_logon: if user.usri4_last_logon != 0 {
-                    Some(user.usri4_last_logon.try_into_date_time()?)
-                } else {
-                    None
-                },
-                last_logoff: if user.usri4_last_logoff != 0 {
-                    Some(user.usri4_last_logoff.try_into_date_time()?)
-                } else {
-                    None
-                },
-                acct_expires: if user.usri4_acct_expires == u32::MAX {
-                    None
-                } else {
-                    Some(user.usri4_acct_expires.try_into_date_time()?)
-                },
+                last_logon: some_if(
+                    user.usri4_last_logon != 0,
+                    user.usri4_last_logon.try_into_date_time()?,
+                ),
+                last_logoff: some_if(
+                    user.usri4_last_logoff != 0,
+                    user.usri4_last_logoff.try_into_date_time()?,
+                ),
+                acct_expires: some_if(
+                    user.usri4_acct_expires != u32::MAX,
+                    user.usri4_acct_expires.try_into_date_time()?,
+                ),
                 max_storage: user.usri4_max_storage.into(),
                 units_per_week: user.usri4_units_per_week.into(),
-                logon_hours: if user.usri4_logon_hours.is_null() {
-                    None
-                } else {
-                    Some(user.usri4_logon_hours.into())
-                },
+                logon_hours: some_if(
+                    !user.usri4_logon_hours.is_null(),
+                    user.usri4_logon_hours.into(),
+                ),
                 bad_pw_count: user.usri4_bad_pw_count.into(),
                 num_logons: user.usri4_num_logons.into(),
                 logon_server: user.usri4_logon_server.to_optional_string(),
-                country_code: if user.usri4_country_code != 0 {
-                    Some(user.usri4_country_code)
-                } else {
-                    None
-                },
-                code_page: if user.usri4_code_page != 0 {
-                    Some(user.usri4_code_page)
-                } else {
-                    None
-                },
+                country_code: some_if(user.usri4_country_code != 0, user.usri4_country_code),
+                code_page: some_if(user.usri4_code_page != 0, user.usri4_code_page),
                 user_id: None,
                 user_sid: Some(psid_to_string(user.usri4_user_sid)?),
                 primary_group_id: user.usri4_primary_group_id.into(),
