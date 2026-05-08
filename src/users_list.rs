@@ -37,7 +37,7 @@ impl UserManager {
         let status = unsafe {
             NetUserEnum(
                 server_name,
-                3,
+                1,
                 filter.into(),
                 &raw mut buffer,
                 u32::MAX,

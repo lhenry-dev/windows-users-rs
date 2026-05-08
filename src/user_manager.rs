@@ -25,7 +25,7 @@ use crate::utils::ToWideString;
 /// ```
 #[derive(Debug, Clone)]
 pub struct UserManager {
-    _server_wide: Option<Vec<u16>>,
+    pub(crate) _server_wide: Option<Vec<u16>>,
     pub(crate) server: PCWSTR,
 }
 

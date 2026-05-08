@@ -139,19 +139,19 @@ match user.delete(&mgr) {
 ### Managing Group Membership
 
 ```rust
-use windows_users::UserManager;
+use windows_users::{UserManager, well_known_sid} ;
 
 let mgr = UserManager::local();
 
 let username = ["DemoUser"];
-let group = "Users";
+let group_name = well_known_sid::USERS.name(&mgr).unwrap();
 
-match mgr.add_users_to_group(&username, group) {
+match mgr.add_users_to_group(&username, &group_name) {
     Ok(_) => println!("User added to group"),
     Err(e) => eprintln!("Failed to add user to group: {e}"),
 }
 
-match mgr.list_group_members(group) {
+match mgr.list_group_members(&group_name) {
     Ok(members) => {
         for member in members {
             println!("{}\\{}", member.domain(), member.name());
@@ -160,7 +160,7 @@ match mgr.list_group_members(group) {
     Err(e) => eprintln!("Failed to list members: {e}"),
 }
 
-match mgr.remove_users_from_group(&username, group) {
+match mgr.remove_users_from_group(&username, &group_name) {
     Ok(_) => println!("User removed from group"),
     Err(e) => eprintln!("Failed to remove user from group: {e}"),
 }

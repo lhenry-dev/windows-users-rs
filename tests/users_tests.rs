@@ -1,4 +1,4 @@
-use windows_users::{UserManager, UserUpdate};
+use windows_users::{UserAccountFlags, UserManager, UserUpdate, well_known_sid};
 
 use crate::helpers::{
     auto_remove_user::AutoRemoveUser,
@@ -156,4 +156,96 @@ fn test_change_user_password_accepts_current_password() {
     user_manager
         .change_user_password(&user_name, "P@ssw0rd123!", "N3wP@ssw0rd!")
         .expect("Failed to change user password");
+}
+
+#[test]
+fn test_current_user() {
+    let user_manager = UserManager::local();
+
+    let current = user_manager
+        .current_user()
+        .expect("Failed to get current user");
+    assert!(
+        !current.name().is_empty(),
+        "Current user should have a non-empty name"
+    );
+
+    let mut buf = [0u16; 256];
+    let mut size = buf.len() as u32;
+
+    unsafe {
+        windows::Win32::System::WindowsProgramming::GetUserNameW(
+            Some(windows::core::PWSTR(buf.as_mut_ptr())),
+            &mut size,
+        )
+        .expect("GetUserNameW failed");
+    }
+
+    let expected_name = String::from_utf16_lossy(&buf[..size.saturating_sub(1) as usize]);
+    assert_eq!(
+        current.name().to_lowercase(),
+        expected_name.to_lowercase(),
+        "current_user should match Windows session user"
+    );
+}
+
+#[test]
+fn test_validate_user_logon() {
+    let user_manager = UserManager::local();
+    let user_name = format!("{USER_NAME}_11");
+    let password = "P@ssw0rd123!";
+
+    let mut user = build_full_user(&user_name);
+    user.set_password(Some(password.to_string()));
+    user.set_workstations(None);
+
+    let _guard = AutoRemoveUser::add(&user_manager, &user).expect("Failed to add user");
+
+    let group_name = well_known_sid::USERS.name(&user_manager).unwrap();
+
+    user_manager
+        .add_users_to_group(&[&user_name], &group_name)
+        .expect("Failed to add user to group");
+
+    let result = user_manager.validate_user_logon(&user_name, password);
+    assert!(result.is_ok(), "Expected valid password to return true");
+
+    let result = user_manager.validate_user_logon(&user_name, "WrongPassword!");
+    assert!(result.is_err(), "Expected invalid password to return false");
+}
+
+#[test]
+fn test_enable_and_disable_user_roundtrip() {
+    let user_manager = UserManager::local();
+
+    let user_name = format!("{USER_NAME}_12");
+    let user = build_full_user(&user_name);
+
+    let _guard = AutoRemoveUser::add(&user_manager, &user).expect("Failed to create user");
+
+    user_manager
+        .enable_user(&user_name, false)
+        .expect("Failed to disable user");
+    let disabled_user = user_manager
+        .get_user(&user_name)
+        .expect("Failed to fetch user after disable");
+    assert!(
+        disabled_user
+            .flags()
+            .contains(UserAccountFlags::ACCOUNTDISABLE),
+        "User should be disabled after enable_user(false)"
+    );
+
+    user_manager
+        .enable_user(&user_name, true)
+        .expect("Failed to enable user");
+    let enabled_user = user_manager
+        .get_user(&user_name)
+        .expect("Failed to fetch user after enable");
+    assert!(
+        !enabled_user
+            .flags()
+            .contains(UserAccountFlags::ACCOUNTDISABLE),
+        "User should be enabled after enable_user(true)"
+    );
 }

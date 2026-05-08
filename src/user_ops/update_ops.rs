@@ -1,14 +1,15 @@
 use chrono::{DateTime, Utc};
 use windows::Win32::NetworkManagement::NetManagement::{
-    NetUserSetInfo, USER_INFO_0, USER_INFO_1003, USER_INFO_1006, USER_INFO_1007, USER_INFO_1008,
-    USER_INFO_1009, USER_INFO_1011, USER_INFO_1012, USER_INFO_1014, USER_INFO_1017, USER_INFO_1020,
-    USER_INFO_1024, USER_INFO_1051, USER_INFO_1052, USER_INFO_1053,
+    NetApiBufferFree, NetUserGetInfo, NetUserSetInfo, USER_INFO_0, USER_INFO_1, USER_INFO_1003,
+    USER_INFO_1006, USER_INFO_1007, USER_INFO_1008, USER_INFO_1009, USER_INFO_1011, USER_INFO_1012,
+    USER_INFO_1014, USER_INFO_1017, USER_INFO_1020, USER_INFO_1024, USER_INFO_1051, USER_INFO_1052,
+    USER_INFO_1053,
 };
 use windows::core::{PCWSTR, PWSTR};
 
 use crate::error::WindowsUsersError;
 use crate::user_ops::update_ops::net_user_info_level::NetUserInfoLevel;
-use crate::utils::{ToWideString, TryIntoTimestamp, net_api_result_with_index};
+use crate::utils::{ToWideString, TryIntoTimestamp, net_api_result, net_api_result_with_index};
 use crate::{UserAccountFlags, UserManager};
 
 mod net_user_info_level;
@@ -61,7 +62,7 @@ impl UserManager {
     /// # Security
     ///
     /// ⚠️ Requires **administrative privileges**.
-    pub fn set_user_name(&self, old_name: &str, new_name: &str) -> Result<(), WindowsUsersError> {
+    pub fn rename_user(&self, old_name: &str, new_name: &str) -> Result<(), WindowsUsersError> {
         let mut new_name_w = new_name.to_wide();
 
         let mut info = USER_INFO_0 {
@@ -209,6 +210,112 @@ impl UserManager {
         };
 
         self.set_user_info(username, &mut info)
+    }
+
+    fn get_user_flags(&self, username: &str) -> Result<UserAccountFlags, WindowsUsersError> {
+        let server_name = self.server;
+
+        let username_w = username.to_wide();
+
+        let mut buffer = std::ptr::null_mut();
+
+        let status =
+            unsafe { NetUserGetInfo(server_name, PCWSTR(username_w.as_ptr()), 1, &raw mut buffer) };
+
+        let _guard = scopeguard::guard(buffer, |buf| {
+            if !buf.is_null() {
+                unsafe { NetApiBufferFree(Some(buf.cast())) };
+            }
+        });
+
+        net_api_result(status)?;
+
+        let flags = unsafe {
+            let ui1 = &*(buffer as *const USER_INFO_1);
+            ui1.usri1_flags
+        };
+
+        Ok(UserAccountFlags::try_from(flags)?)
+    }
+
+    /// Adds user account control flags (UF_*).
+    ///
+    /// This function retrieves the current account flags and adds the specified
+    /// flags using a bitwise OR operation. It allows enabling additional account
+    /// properties without affecting existing ones.
+    ///
+    /// Typical use cases include:
+    /// - disabling an account
+    /// - setting "password never expires"
+    /// - preventing the user from changing their password
+    ///
+    /// Internally, this function:
+    /// 1. Calls `NetUserGetInfo` (level 1) to retrieve current flags
+    /// 2. Combines them with the provided flags
+    /// 3. Calls `NetUserSetInfo` (level 1008) to apply the update
+    ///
+    /// # Arguments
+    ///
+    /// * `username` - The account name to update.
+    /// * `flags` - Bitflags to add to the existing account properties.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` on success.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`WindowsUsersError`] if:
+    /// - The user does not exist
+    /// - The flags cannot be retrieved or converted
+    /// - The update operation fails
+    pub fn add_user_flags(
+        &self,
+        username: &str,
+        flags: UserAccountFlags,
+    ) -> Result<(), WindowsUsersError> {
+        let current = self.get_user_flags(username)?;
+        self.set_user_flags(username, current | flags)
+    }
+
+    /// Removes user account control flags (UF_*).
+    ///
+    /// This function retrieves the current account flags and removes the specified
+    /// flags using a bitwise AND NOT operation. It allows disabling specific account
+    /// properties without affecting others.
+    ///
+    /// Typical use cases include:
+    /// - enabling an account
+    /// - clearing "password never expires"
+    /// - allowing the user to change their password
+    ///
+    /// Internally, this function:
+    /// 1. Calls `NetUserGetInfo` (level 1) to retrieve current flags
+    /// 2. Combines them with the provided flags using a bitwise AND NOT operation
+    /// 3. Calls `NetUserSetInfo` (level 1008) to apply the update
+    ///
+    /// # Arguments
+    ///
+    /// * `username` - The account name to update.
+    /// * `flags` - Bitflags to remove from the existing account properties.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` on success.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`WindowsUsersError`] if:
+    /// - The user does not exist
+    /// - The flags cannot be retrieved or converted
+    /// - The update operation fails
+    pub fn remove_user_flags(
+        &self,
+        username: &str,
+        flags: UserAccountFlags,
+    ) -> Result<(), WindowsUsersError> {
+        let current = self.get_user_flags(username)?;
+        self.set_user_flags(username, current & !flags)
     }
 
     /// Sets the logon script path for a user.

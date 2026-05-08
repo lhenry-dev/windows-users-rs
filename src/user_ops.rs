@@ -1,13 +1,18 @@
 use windows::{
-    Win32::NetworkManagement::NetManagement::{
-        NetApiBufferFree, NetUserAdd, NetUserChangePassword, NetUserDel, NetUserGetInfo,
-        USER_INFO_4,
+    Win32::{
+        Foundation::{CloseHandle, HANDLE},
+        NetworkManagement::NetManagement::{
+            NetApiBufferFree, NetUserAdd, NetUserChangePassword, NetUserDel, NetUserGetInfo,
+            USER_INFO_4,
+        },
+        Security::{LOGON32_LOGON_NETWORK, LOGON32_PROVIDER_DEFAULT, LogonUserW},
+        System::WindowsProgramming::GetUserNameW,
     },
-    core::PCWSTR,
+    core::{PCWSTR, PWSTR},
 };
 
 use crate::{
-    LogonHours, User, UserManager, UserUpdate,
+    LogonHours, User, UserAccountFlags, UserManager, UserUpdate,
     error::WindowsUsersError,
     utils::{ToWideString, net_api_result, net_api_result_with_index},
 };
@@ -311,7 +316,7 @@ impl UserManager {
         }
 
         if let Some(ref name) = settings.name {
-            self.set_user_name(username, name)?;
+            self.rename_user(username, name)?;
         }
 
         Ok(())
@@ -395,5 +400,167 @@ impl UserManager {
         });
 
         net_api_result(status).is_ok()
+    }
+
+    /// Retrieves the currently logged-in user as a full [`User`] object.
+    ///
+    /// This function resolves the identity of the current Windows session user
+    /// and then fetches its full account information from the target machine
+    /// using `NetUserGetInfo` level 4.
+    ///
+    /// The lookup is performed in two steps:
+    ///
+    /// - The current username is retrieved using `GetUserNameW` (Win32 API)
+    /// - The username is resolved into a full account record using `NetUserGetInfo`
+    ///
+    /// # Returns
+    ///
+    /// Returns the full [`User`] object on success.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`WindowsUsersError`] if:
+    /// - The current username cannot be retrieved (`GetUserNameW` fails)
+    /// - The user does not exist in the system database
+    /// - The NetAPI lookup fails (`NetUserGetInfo`)
+    /// - The returned data cannot be converted into [`User`]
+    pub fn current_user(&self) -> Result<User, WindowsUsersError> {
+        let mut buffer = [0u16; 256];
+        let mut size = buffer.len() as u32;
+
+        unsafe { GetUserNameW(Some(PWSTR(buffer.as_mut_ptr())), &mut size)? };
+
+        let username = String::from_utf16_lossy(&buffer[..size.saturating_sub(1) as usize]);
+
+        let username_w = username.to_wide();
+
+        let mut ptr = std::ptr::null_mut();
+
+        let status =
+            unsafe { NetUserGetInfo(self.server, PCWSTR(username_w.as_ptr()), 4, &raw mut ptr) };
+
+        let _guard = scopeguard::guard(ptr, |p| {
+            if !p.is_null() {
+                unsafe { NetApiBufferFree(Some(p.cast())) };
+            }
+        });
+
+        net_api_result(status)?;
+
+        let user = unsafe {
+            let info = &*(ptr as *const USER_INFO_4);
+            User::try_from(info)?
+        };
+
+        Ok(user)
+    }
+
+    /// Enables or disables a user account.
+    ///
+    /// This function toggles the `ACCOUNTDISABLE` flag depending on the value
+    /// of `enable`:
+    ///
+    /// - `true`  → removes the flag (account is enabled)
+    /// - `false` → sets the flag (account is disabled)
+    ///
+    /// # Arguments
+    ///
+    /// * `username` - The account name to update.
+    /// * `enable` - Whether the account should be enabled.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` on success.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`WindowsUsersError`] if:
+    /// - The user does not exist
+    /// - The update operation fails
+    pub fn enable_user(&self, username: &str, enable: bool) -> Result<(), WindowsUsersError> {
+        if enable {
+            self.remove_user_flags(username, UserAccountFlags::ACCOUNTDISABLE)
+        } else {
+            self.add_user_flags(username, UserAccountFlags::ACCOUNTDISABLE)
+        }
+    }
+
+    /// Attempts to authenticate a user using Windows LSA logon.
+    ///
+    /// This function performs a real authentication attempt using the Windows API
+    /// `LogonUserW` with the `LOGON32_LOGON_NETWORK` logon type.
+    ///
+    /// It validates credentials against the Windows security subsystem (LSA),
+    /// meaning it performs a real logon attempt rather than only checking password
+    /// policy rules.
+    ///
+    /// When targeting a remote machine through [`UserManager::remote`], the
+    /// server name is converted from UNC format (e.g. `"\\\\SERVER01"`) into a
+    /// machine/domain name compatible with `LogonUserW`.
+    ///
+    /// # Arguments
+    ///
+    /// * `username` - The account name to authenticate.
+    /// * `password` - The plaintext password to validate.
+    ///
+    /// # Returns
+    ///
+    /// Returns:
+    /// - `Ok(())` if authentication succeeds
+    /// - `Err(WindowsUsersError)` if authentication fails or a system error occurs
+    ///
+    /// # Notes
+    ///
+    /// This function does NOT return a boolean because Windows authentication
+    /// failures carry meaningful semantic information (e.g. invalid credentials,
+    /// account restrictions, lockout, etc.).
+    ///
+    /// All failures are returned as `Err`, including:
+    /// - invalid credentials (`ERROR_LOGON_FAILURE`)
+    /// - access denied (`ERROR_ACCESS_DENIED`)
+    /// - account restrictions
+    /// - policy violations
+    /// - system or API errors
+    pub fn validate_user_logon(
+        &self,
+        username: &str,
+        password: &str,
+    ) -> Result<(), WindowsUsersError> {
+        let username_w = username.to_wide();
+        let password_w = password.to_wide();
+
+        // Transform "\\SERVER01" -> "SERVER01"
+        let domain_wide = self._server_wide.as_ref().map(|wide| {
+            let server = String::from_utf16_lossy(wide);
+            server.trim_start_matches('\\').to_wide()
+        });
+
+        let domain = domain_wide
+            .as_ref()
+            .map(|v| PCWSTR(v.as_ptr()))
+            .unwrap_or(PCWSTR::null());
+
+        let mut token = HANDLE::default();
+
+        let result = unsafe {
+            LogonUserW(
+                PCWSTR(username_w.as_ptr()),
+                domain,
+                PCWSTR(password_w.as_ptr()),
+                LOGON32_LOGON_NETWORK,
+                LOGON32_PROVIDER_DEFAULT,
+                &mut token,
+            )
+        };
+
+        match result {
+            Ok(()) => {
+                unsafe {
+                    let _ = CloseHandle(token);
+                }
+                Ok(())
+            }
+            Err(err) => Err(WindowsUsersError::WindowsError(err)),
+        }
     }
 }
