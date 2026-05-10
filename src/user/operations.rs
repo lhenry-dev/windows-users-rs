@@ -1,8 +1,11 @@
 use crate::error::WindowsUsersError;
-use crate::{User, UserManager, UserUpdate};
+use crate::{User, UserAccountFlags, UserManager, UserUpdate};
 
 impl User {
-    /// Creates and registers an account from the current instance's properties.
+    /// Adds a new user to the local machine.
+    ///
+    /// This function creates a local account from the provided [`User`] payload
+    /// using `NetUserAdd` level 4.
     ///
     /// # Arguments
     ///
@@ -10,15 +13,15 @@ impl User {
     ///
     /// # Returns
     ///
-    /// Returns a [`Result<(), WindowsUsersError>`]. If the user is successfully created,
-    /// it returns `Ok(())`. Otherwise, it returns a [`WindowsUsersError`].
+    /// Returns `Ok(())` when the account is created successfully.
     ///
     /// # Errors
     ///
-    /// May return a [`WindowsUsersError`] if there is a failure during:
-    /// - Windows API call (`NetUserAdd`)
-    /// - Invalid parameters
-    /// - Permission issues
+    /// Returns a [`WindowsUsersError`] if:
+    /// - The account creation API call fails (`NetUserAdd`)
+    /// - A provided field is invalid
+    /// - The account already exists
+    /// - The caller does not have sufficient privileges
     ///
     /// # Security
     ///
@@ -36,7 +39,6 @@ impl User {
     /// # Arguments
     ///
     /// * `mgr` - The [`UserManager`] used to perform the operation (defines the target server).
-    /// * `user` - The user definition to create if absent.
     ///
     /// # Returns
     ///
@@ -68,7 +70,6 @@ impl User {
     /// # Arguments
     ///
     /// * `mgr` - The [`UserManager`] used to perform the operation (defines the target server).
-    /// * `user` - The desired user state
     ///
     /// # Returns
     ///
@@ -83,11 +84,6 @@ impl User {
     /// - The creation operation fails (`NetUserAdd`)
     /// - The caller does not have sufficient privileges
     ///
-    /// # Behavior
-    ///
-    /// This function is **idempotent**: calling it multiple times with the same
-    /// input should converge to the same user state.
-    ///
     /// # Security
     ///
     /// ⚠️ Requires **administrative privileges** for both creation and update operations.
@@ -95,7 +91,10 @@ impl User {
         mgr.add_user_or_update(self)
     }
 
-    /// Removes the user identified by [`User::name`].
+    /// Deletes a user from the local machine.
+    ///
+    /// This function removes an existing local account identified by `username`
+    /// using `NetUserDel`.
     ///
     /// # Arguments
     ///
@@ -103,14 +102,14 @@ impl User {
     ///
     /// # Returns
     ///
-    /// Returns a [`Result<(), WindowsUsersError>`]. If the user is successfully deleted,
-    /// it returns `Ok(())`. Otherwise, it returns a [`WindowsUsersError`].
+    /// Returns `Ok(())` when the account is deleted successfully.
     ///
     /// # Errors
     ///
-    /// May return a [`WindowsUsersError`] if there is a failure during:
-    /// - Windows API call (`NetUserDel`)
-    /// - User not found
+    /// Returns a [`WindowsUsersError`] if:
+    /// - The user does not exist
+    /// - The deletion API call fails (`NetUserDel`)
+    /// - The caller does not have sufficient privileges
     ///
     /// # Security
     ///
@@ -120,8 +119,10 @@ impl User {
         Ok(())
     }
 
-    /// Modifies an existing account using the provided [`UserUpdate`] struct.
-    /// After a successful update, the current instance is also updated to reflect the changes.
+    /// Updates an existing user on the local machine.
+    ///
+    /// This function updates account properties for `username` with a full
+    /// `USER_INFO_4` payload generated from [`UserUpdate`].
     ///
     /// # Arguments
     ///
@@ -130,14 +131,15 @@ impl User {
     ///
     /// # Returns
     ///
-    /// Returns a [`Result<(), WindowsUsersError>`]. If the update succeeds,
-    /// it returns `Ok(())`. Otherwise, it returns a [`WindowsUsersError`].
+    /// Returns `Ok(())` when the update succeeds.
     ///
     /// # Errors
     ///
-    /// May return a [`WindowsUsersError`] if there is a failure during:
-    /// - Windows API call (`NetUserSetInfo`)
-    /// - Invalid fields
+    /// Returns a [`WindowsUsersError`] if:
+    /// - The user does not exist
+    /// - One or more fields are invalid
+    /// - The update API call fails (`NetUserSetInfo`)
+    /// - The caller does not have sufficient privileges
     ///
     /// # Security
     ///
@@ -195,7 +197,10 @@ impl User {
         Ok(())
     }
 
-    /// Checks whether this user exists on the system.
+    /// Checks if a user exists on the local machine.
+    ///
+    /// This function queries `NetUserGetInfo` level 0 and maps success to `true`.
+    /// Any failure is interpreted as `false`.
     ///
     /// # Arguments
     ///
@@ -203,12 +208,40 @@ impl User {
     ///
     /// # Returns
     ///
-    /// Returns `true` if the user exists, otherwise `false`.
+    /// Returns `true` if the user can be retrieved, otherwise `false`.
     ///
     /// # Errors
     ///
-    /// Does not return errors. Failures are interpreted as "user does not exist".
+    /// This function does not return errors directly.
     pub fn exists(&self, mgr: &UserManager) -> bool {
         mgr.user_exists(&self.name)
+    }
+
+    /// Enables or disables a user account.
+    ///
+    /// This function toggles the `ACCOUNTDISABLE` flag depending on the value
+    /// of `enable`:
+    ///
+    /// - `true`  → removes the flag (account is enabled)
+    /// - `false` → sets the flag (account is disabled)
+    ///
+    /// # Arguments
+    ///
+    /// * `mgr` - The [`UserManager`] used to perform the operation (defines the target server).
+    /// * `enable` - Whether the account should be enabled.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` on success.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`WindowsUsersError`] if:
+    /// - The user does not exist
+    /// - The update operation fails
+    pub fn enable(&mut self, mgr: &UserManager, enable: bool) -> Result<(), WindowsUsersError> {
+        mgr.enable_user(&self.name, enable)?;
+        self.flags.set(UserAccountFlags::ACCOUNTDISABLE, !enable);
+        Ok(())
     }
 }

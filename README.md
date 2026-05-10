@@ -12,17 +12,18 @@
 
 ---
 
-**A Rust crate for managing Windows users and groups using the Windows API in Rust.**
+**A Rust crate for managing local Windows users and groups using the Windows API in Rust.**
 
 </div>
 
 ## Features
 
 - Create, update, delete, and fetch local users
-- Check if a user exists and change user passwords
+- Create, update, delete, and query local groups
 - Add or remove users from local groups
-- List local groups and group members
-- List and count users with `UserFilterFlags`
+- Support for local and remote machine management
+- Well-known SID helpers (`Users`, `Administrators`, etc.)
+- User enumeration with `UserFilterFlags`
 
 ## Installation
 
@@ -47,6 +48,56 @@ let mgr = UserManager::local();
 let mgr = UserManager::remote(r"\\SERVER01");
 ```
 
+### Creating a User and Assigning a Group
+
+On Windows, creating a local user account is often not enough by itself.  
+A user should usually be added to a local group so Windows can determine which permissions and capabilities the account has.
+
+The most common groups are:
+
+- **Users** → standard account with basic access to the machine
+- **Administrators** → elevated account with full system privileges
+
+In most applications, adding the account to the **Users** group is the recommended and safest default.
+
+```rust
+use windows_users::{UserManager, User, well_known_sid};
+
+let mgr = UserManager::local();
+
+let username = "DemoUser1";
+
+// Create the user
+let user = User::builder()
+    .name(username)
+    .password("P@ssw0rd123!")
+    .full_name("Demo User")
+    .comment("User created with group assignment")
+    .build();
+
+match mgr.add_user(&user) {
+    Ok(_) => println!("User created"),
+    Err(e) => {
+        eprintln!("Failed to create user: {e}");
+        return;
+    }
+}
+
+// Add the user to the standard Users group
+let users_group = well_known_sid::USERS.name(&mgr).unwrap();
+
+match mgr.add_users_to_group(&[username], &users_group) {
+    Ok(_) => println!("User added to Users group"),
+    Err(e) => eprintln!("Failed to add user to group: {e}"),
+}
+
+// Delete the user
+match mgr.delete_user(username) {
+    Ok(_) => println!("User deleted"),
+    Err(e) => eprintln!("Failed to delete user: {e}"),
+}
+```
+
 ### Creating and Managing a User
 
 ```rust
@@ -54,7 +105,7 @@ use windows_users::{UserManager, User, UserUpdate};
 
 let mgr = UserManager::local();
 
-let username = "DemoUser";
+let username = "DemoUser2";
 
 // Create a new user
 let user = User::builder()

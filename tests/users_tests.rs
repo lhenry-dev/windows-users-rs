@@ -1,4 +1,4 @@
-use windows_users::{UserAccountFlags, UserManager, UserUpdate, well_known_sid};
+use windows_users::{UserAccountFlags, UserManager, UserUpdate};
 
 use crate::helpers::{
     auto_remove_user::AutoRemoveUser,
@@ -201,12 +201,6 @@ fn test_validate_user_logon() {
 
     let _guard = AutoRemoveUser::add(&user_manager, &user).expect("Failed to add user");
 
-    let group_name = well_known_sid::USERS.name(&user_manager).unwrap();
-
-    user_manager
-        .add_users_to_group(&[&user_name], &group_name)
-        .expect("Failed to add user to group");
-
     let result = user_manager.validate_user_logon(&user_name, password);
     assert!(result.is_ok(), "Expected valid password to return true");
 
@@ -219,12 +213,10 @@ fn test_enable_and_disable_user_roundtrip() {
     let user_manager = UserManager::local();
 
     let user_name = format!("{USER_NAME}_12");
-    let user = build_full_user(&user_name);
-
+    let mut user = build_full_user(&user_name);
     let _guard = AutoRemoveUser::add(&user_manager, &user).expect("Failed to create user");
 
-    user_manager
-        .enable_user(&user_name, false)
+    user.enable(&user_manager, false)
         .expect("Failed to disable user");
     let disabled_user = user_manager
         .get_user(&user_name)
@@ -235,9 +227,9 @@ fn test_enable_and_disable_user_roundtrip() {
             .contains(UserAccountFlags::ACCOUNTDISABLE),
         "User should be disabled after enable_user(false)"
     );
+    assert!(user.flags().contains(UserAccountFlags::ACCOUNTDISABLE));
 
-    user_manager
-        .enable_user(&user_name, true)
+    user.enable(&user_manager, true)
         .expect("Failed to enable user");
     let enabled_user = user_manager
         .get_user(&user_name)
@@ -248,4 +240,5 @@ fn test_enable_and_disable_user_roundtrip() {
             .contains(UserAccountFlags::ACCOUNTDISABLE),
         "User should be enabled after enable_user(true)"
     );
+    assert!(!user.flags().contains(UserAccountFlags::ACCOUNTDISABLE));
 }
