@@ -1,4 +1,4 @@
-use windows_users::{User, UserManager, UserUpdate, WindowsUsersError};
+use windows_users::{User, UserManager, WindowsUsersError};
 
 #[must_use]
 pub struct AutoRemoveUserResult<'a> {

@@ -124,11 +124,6 @@ impl UserManager {
     /// - The creation operation fails (`NetUserAdd`)
     /// - The caller does not have sufficient privileges
     ///
-    /// # Behavior
-    ///
-    /// This function is **idempotent**: calling it multiple times with the same
-    /// input should converge to the same user state.
-    ///
     /// # Security
     ///
     /// ⚠️ Requires **administrative privileges** for both creation and update operations.
