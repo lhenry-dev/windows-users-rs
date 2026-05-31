@@ -71,7 +71,7 @@ impl UserManager {
         let groups = unsafe {
             std::slice::from_raw_parts(buffer as *const LOCALGROUP_INFO_1, entries_read as usize)
                 .iter()
-                .map(Group::try_from)
+                .map(|info| Group::try_from(*info))
                 .collect::<Result<Vec<_>, _>>()
         }?;
 
@@ -137,7 +137,7 @@ impl UserManager {
                 entries_read as usize,
             )
             .iter()
-            .map(GroupMember::try_from)
+            .map(|member| GroupMember::try_from(*member))
             .collect::<Result<Vec<_>, _>>()
         }?;
 
@@ -347,11 +347,10 @@ impl UserManager {
         let comment_wide = group.comment().to_wide_option();
 
         let group_info = LOCALGROUP_INFO_1 {
-            lgrpi1_name: PWSTR(group_name.as_ptr() as _),
+            lgrpi1_name: PWSTR(group_name.as_ptr().cast_mut()),
             lgrpi1_comment: comment_wide
                 .as_ref()
-                .map(|v| PWSTR(v.as_ptr() as _))
-                .unwrap_or(PWSTR::null()),
+                .map_or(PWSTR::null(), |v| PWSTR(v.as_ptr().cast_mut())),
         };
 
         let mut parm_err = 0;
@@ -360,7 +359,7 @@ impl UserManager {
             NetLocalGroupAdd(
                 self.server,
                 1,
-                &group_info as *const _ as _,
+                (&raw const group_info).cast(),
                 Some(&raw mut parm_err),
             )
         };
@@ -440,8 +439,8 @@ impl UserManager {
         net_api_result(status)?;
 
         let group = unsafe {
-            let info = &*(buffer as *const LOCALGROUP_INFO_1);
-            Group::try_from(info)?
+            let info = buffer as *const LOCALGROUP_INFO_1;
+            Group::try_from(*info)?
         };
 
         Ok(group)
@@ -520,11 +519,10 @@ impl UserManager {
         let comment_wide = group.comment().to_wide_option();
 
         let group_info = LOCALGROUP_INFO_1 {
-            lgrpi1_name: PWSTR(group_name.as_ptr() as _),
+            lgrpi1_name: PWSTR(group_name.as_ptr().cast_mut()),
             lgrpi1_comment: comment_wide
                 .as_ref()
-                .map(|v| PWSTR(v.as_ptr() as _))
-                .unwrap_or(PWSTR::null()),
+                .map_or(PWSTR::null(), |v| PWSTR(v.as_ptr().cast_mut())),
         };
 
         let mut parm_err = 0;
@@ -534,7 +532,7 @@ impl UserManager {
                 self.server,
                 PCWSTR(group_name.as_ptr()),
                 1,
-                &group_info as *const _ as _,
+                (&raw const group_info).cast(),
                 Some(&raw mut parm_err),
             )
         };

@@ -19,10 +19,10 @@ pub struct Group {
     comment: Option<String>,
 }
 
-impl TryFrom<&LOCALGROUP_INFO_1> for Group {
+impl TryFrom<LOCALGROUP_INFO_1> for Group {
     type Error = WindowsUsersError;
 
-    fn try_from(group: &LOCALGROUP_INFO_1) -> Result<Self, WindowsUsersError> {
+    fn try_from(group: LOCALGROUP_INFO_1) -> Result<Self, WindowsUsersError> {
         unsafe {
             Ok({
                 Self {
@@ -59,10 +59,10 @@ pub struct GroupMember {
     sid: String,
 }
 
-impl TryFrom<&LOCALGROUP_MEMBERS_INFO_2> for GroupMember {
+impl TryFrom<LOCALGROUP_MEMBERS_INFO_2> for GroupMember {
     type Error = WindowsUsersError;
 
-    fn try_from(member: &LOCALGROUP_MEMBERS_INFO_2) -> Result<Self, WindowsUsersError> {
+    fn try_from(member: LOCALGROUP_MEMBERS_INFO_2) -> Result<Self, WindowsUsersError> {
         unsafe {
             let full_name = member.lgrmi2_domainandname.to_string()?;
 

@@ -1,4 +1,4 @@
-use windows_users::{UserFilterFlags, UserManager};
+use windows_users::{UserAccountFlags, UserFilterFlags, UserManager};
 
 use crate::helpers::{
     auto_remove_user::AutoRemoveUser, build::build_full_user, constants::USER_NAME,
@@ -28,5 +28,21 @@ fn test_list_users_and_count_users_are_consistent() {
     assert!(
         users.iter().any(|candidate| candidate.name() == &user_name),
         "Expected user to be present in listed users"
+    );
+}
+
+#[test]
+fn test_list_enabled_users_returns_only_enabled_accounts() {
+    let user_manager = UserManager::local();
+
+    let enabled_users = user_manager
+        .list_enabled_users(UserFilterFlags::NORMAL_ACCOUNT)
+        .expect("Failed to list enabled users");
+
+    assert!(
+        enabled_users
+            .iter()
+            .all(|u| !u.flags().contains(UserAccountFlags::ACCOUNTDISABLE)),
+        "All returned users should be enabled"
     );
 }

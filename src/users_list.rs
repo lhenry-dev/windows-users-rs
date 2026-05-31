@@ -2,7 +2,7 @@ use windows::Win32::NetworkManagement::NetManagement::{
     NetApiBufferFree, NetUserEnum, USER_INFO_3,
 };
 
-use crate::{User, UserManager, error::WindowsUsersError, utils::net_api_result};
+use crate::{User, UserAccountFlags, UserManager, error::WindowsUsersError, utils::net_api_result};
 
 pub use self::user_filter_flag::UserFilterFlags;
 
@@ -109,10 +109,43 @@ impl UserManager {
         let users = unsafe {
             std::slice::from_raw_parts(buffer as *const USER_INFO_3, entries_read as usize)
                 .iter()
-                .map(User::try_from)
+                .map(|info| User::try_from(*info))
                 .collect::<Result<Vec<_>, _>>()
         }?;
 
         Ok(users)
+    }
+
+    /// Lists enabled user accounts on the local machine.
+    ///
+    /// This function retrieves all user accounts via `NetUserEnum` (level 3)
+    /// and filters out disabled accounts, returning only active users.
+    ///
+    /// # Arguments
+    ///
+    /// * `filter` - A combination of [`UserFilterFlags`] that determines which
+    ///   accounts are included (e.g. normal accounts, disabled accounts, etc.).
+    ///
+    /// # Returns
+    ///
+    /// A vector of [`User`] containing only enabled accounts.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`WindowsUsersError`] if:
+    /// - The enumeration API call fails (`NetUserEnum`)
+    /// - Any entry cannot be converted into [`User`]
+    pub fn list_enabled_users(
+        &self,
+        filter: UserFilterFlags,
+    ) -> Result<Vec<User>, WindowsUsersError> {
+        let users = self.list_users(filter)?;
+
+        let enabled_users = users
+            .into_iter()
+            .filter(|user| !user.flags().contains(UserAccountFlags::ACCOUNTDISABLE))
+            .collect();
+
+        Ok(enabled_users)
     }
 }

@@ -50,7 +50,7 @@ let mgr = UserManager::remote(r"\\SERVER01");
 
 ### Creating a User and Assigning a Group
 
-On Windows, creating a local user account is often not enough by itself.  
+On Windows, creating a local user account is often not enough by itself.\
 A user should usually be added to a local group so Windows can determine which permissions and capabilities the account has.
 
 The most common groups are:

@@ -355,8 +355,8 @@ impl UserManager {
         net_api_result(status)?;
 
         let user = unsafe {
-            let ui4 = &*(buffer as *const USER_INFO_4);
-            User::try_from(ui4)?
+            let ui4 = buffer as *const USER_INFO_4;
+            User::try_from(*ui4)?
         };
 
         Ok(user)
@@ -417,13 +417,13 @@ impl UserManager {
     /// Returns a [`WindowsUsersError`] if:
     /// - The current username cannot be retrieved (`GetUserNameW` fails)
     /// - The user does not exist in the system database
-    /// - The NetAPI lookup fails (`NetUserGetInfo`)
+    /// - The `NetAPI` lookup fails (`NetUserGetInfo`)
     /// - The returned data cannot be converted into [`User`]
     pub fn current_user(&self) -> Result<User, WindowsUsersError> {
         let mut buffer = [0u16; 256];
         let mut size = buffer.len() as u32;
 
-        unsafe { GetUserNameW(Some(PWSTR(buffer.as_mut_ptr())), &mut size)? };
+        unsafe { GetUserNameW(Some(PWSTR(buffer.as_mut_ptr())), &raw mut size)? };
 
         let username = String::from_utf16_lossy(&buffer[..size.saturating_sub(1) as usize]);
 
@@ -443,8 +443,8 @@ impl UserManager {
         net_api_result(status)?;
 
         let user = unsafe {
-            let info = &*(ptr as *const USER_INFO_4);
-            User::try_from(info)?
+            let info = ptr as *const USER_INFO_4;
+            User::try_from(*info)?
         };
 
         Ok(user)
@@ -516,6 +516,16 @@ impl UserManager {
     /// - account restrictions
     /// - policy violations
     /// - system or API errors
+    ///
+    /// # Errors
+    ///
+    /// This function returns a [`WindowsUsersError`] in the following cases:
+    ///
+    /// - Invalid credentials (`ERROR_LOGON_FAILURE`)
+    /// - Access denied (`ERROR_ACCESS_DENIED`)
+    /// - Account restrictions (disabled, expired, locked out)
+    /// - Policy violations (logon restrictions, workstation restrictions, etc.)
+    /// - System or API failures from `LogonUserW`
     pub fn validate_user_logon(
         &self,
         username: &str,
@@ -525,15 +535,14 @@ impl UserManager {
         let password_w = password.to_wide();
 
         // Transform "\\SERVER01" -> "SERVER01"
-        let domain_wide = self._server_wide.as_ref().map(|wide| {
+        let domain_wide = self.server_wide.as_ref().map(|wide| {
             let server = String::from_utf16_lossy(wide);
             server.trim_start_matches('\\').to_wide()
         });
 
         let domain = domain_wide
             .as_ref()
-            .map(|v| PCWSTR(v.as_ptr()))
-            .unwrap_or(PCWSTR::null());
+            .map_or(PCWSTR::null(), |v| PCWSTR(v.as_ptr()));
 
         let mut token = HANDLE::default();
 
@@ -544,7 +553,7 @@ impl UserManager {
                 PCWSTR(password_w.as_ptr()),
                 LOGON32_LOGON_NETWORK,
                 LOGON32_PROVIDER_DEFAULT,
-                &mut token,
+                &raw mut token,
             )
         };
 

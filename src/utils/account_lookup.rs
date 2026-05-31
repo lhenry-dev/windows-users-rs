@@ -109,15 +109,16 @@ impl UserManager {
 mod tests {
     use crate::{SidType, UserManager, utils::sid::str_to_psid};
 
+    struct TestSid {
+        sid: &'static str,
+        expected_names: &'static [&'static str],
+        domain: &'static str,
+        sid_type: SidType,
+    }
+
     #[test]
     fn sid_name_sid_roundtrip_known_sids() {
         let user_manager = UserManager::local();
-        struct TestSid {
-            sid: &'static str,
-            expected_names: &'static [&'static str],
-            domain: &'static str,
-            sid_type: SidType,
-        }
 
         let cases = [
             TestSid {

@@ -25,7 +25,7 @@ use crate::utils::ToWideString;
 /// ```
 #[derive(Debug, Clone)]
 pub struct UserManager {
-    pub(crate) _server_wide: Option<Vec<u16>>,
+    pub(crate) server_wide: Option<Vec<u16>>,
     pub(crate) server: PCWSTR,
 }
 
@@ -43,7 +43,7 @@ impl UserManager {
         let ptr = PCWSTR(wide.as_ptr());
 
         Self {
-            _server_wide: Some(wide),
+            server_wide: Some(wide),
             server: ptr,
         }
     }
@@ -54,7 +54,7 @@ impl UserManager {
     /// to indicate "current machine".
     pub fn local() -> Self {
         Self {
-            _server_wide: None,
+            server_wide: None,
             server: PCWSTR::null(),
         }
     }

@@ -160,10 +160,10 @@ pub struct User {
     password_expired: Option<bool>,
 }
 
-impl TryFrom<&USER_INFO_3> for User {
+impl TryFrom<USER_INFO_3> for User {
     type Error = WindowsUsersError;
 
-    fn try_from(user: &USER_INFO_3) -> Result<Self, WindowsUsersError> {
+    fn try_from(user: USER_INFO_3) -> Result<Self, WindowsUsersError> {
         unsafe {
             Ok(Self {
                 name: user.usri3_name.to_string()?,
@@ -216,10 +216,10 @@ impl TryFrom<&USER_INFO_3> for User {
     }
 }
 
-impl TryFrom<&USER_INFO_4> for User {
+impl TryFrom<USER_INFO_4> for User {
     type Error = WindowsUsersError;
 
-    fn try_from(user: &USER_INFO_4) -> Result<Self, WindowsUsersError> {
+    fn try_from(user: USER_INFO_4) -> Result<Self, WindowsUsersError> {
         unsafe {
             Ok(Self {
                 name: user.usri4_name.to_string()?,
