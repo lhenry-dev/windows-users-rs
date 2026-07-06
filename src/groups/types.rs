@@ -7,6 +7,7 @@ use windows::Win32::NetworkManagement::NetManagement::{
 use crate::{WindowsUsersError, utils::psid_to_string};
 
 /// Representation of a Windows local group.
+/// [`LOCALGROUP_INFO_1`](https://learn.microsoft.com/windows/win32/api/lmaccess/ns-lmaccess-localgroup_info_1)
 #[derive(Debug, Clone, Getters, Setters, TypedBuilder)]
 pub struct Group {
     /// The name of the group.
@@ -39,6 +40,7 @@ impl TryFrom<LOCALGROUP_INFO_1> for Group {
 }
 
 /// Representation of a member of a Windows local group.
+/// [`LOCALGROUP_MEMBERS_INFO_2`](https://learn.microsoft.com/windows/win32/api/lmaccess/ns-lmaccess-localgroup_members_info_2)
 #[derive(Debug, Clone, Getters, Setters, TypedBuilder)]
 pub struct GroupMember {
     /// The name of the member.

@@ -6,7 +6,8 @@ use windows::Win32::NetworkManagement::NetManagement::{
 use crate::user::types::InvalidUserProperty;
 
 bitflags! {
-    /// Operator privileges flags from `usri3_auth_flags`
+    /// Operator privileges flags from `usri4_auth_flags`
+    /// [`USER_INFO_4`](https://learn.microsoft.com/windows/win32/api/lmaccess/ns-lmaccess-user_info_4) (see `usri4_auth_flags`)
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct UserAuthFlags: u32 {
         /// No special authentication flags

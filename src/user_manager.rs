@@ -6,8 +6,10 @@ use crate::utils::ToWideString;
 /// the **local machine** or a **remote server**.
 ///
 /// This struct encapsulates the target server as a wide string pointer
-/// (`PCWSTR`) compatible with Windows API calls such as `NetUserAdd`,
-/// `NetUserDel`, and `NetUserSetInfo`.
+/// (`PCWSTR`) compatible with Windows API calls such as
+/// [`NetUserAdd`](https://learn.microsoft.com/windows/win32/api/lmaccess/nf-lmaccess-netuseradd),
+/// [`NetUserDel`](https://learn.microsoft.com/windows/win32/api/lmaccess/nf-lmaccess-netuserdel),
+/// and [`NetUserSetInfo`](https://learn.microsoft.com/windows/win32/api/lmaccess/nf-lmaccess-netusersetinfo).
 ///
 /// # Local vs Remote
 ///

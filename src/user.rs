@@ -28,7 +28,8 @@ pub mod types;
 const DOMAIN_GROUP_RID_USERS: u32 = 513;
 
 /// Represents detailed information about a Windows user account.
-/// Rust-native version of `USER_INFO_3`, with appropriate types and semantics.
+/// Rust-native version of `USER_INFO_4`, with appropriate types and semantics.
+/// [`USER_INFO_4`](https://learn.microsoft.com/windows/win32/api/lmaccess/ns-lmaccess-user_info_4)
 #[derive(Debug, Clone, Getters, Setters, TypedBuilder)]
 pub struct User {
     /// User account name (up to 20 characters, no forbidden symbols).
@@ -381,6 +382,7 @@ impl User {
 }
 
 /// Struct for updating Windows user accounts.
+/// [`USER_INFO_4`](https://learn.microsoft.com/windows/win32/api/lmaccess/ns-lmaccess-user_info_4)
 #[derive(Debug, Clone, TypedBuilder)]
 pub struct UserUpdate {
     /// User account name (up to 20 characters, no forbidden symbols).

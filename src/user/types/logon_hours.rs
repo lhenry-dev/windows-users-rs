@@ -22,6 +22,7 @@ pub enum Day {
 }
 
 /// Represents the logon hours for a user, allowing you to specify which hours of the week a user is allowed to log on.
+/// [`USER_INFO_1020`](https://learn.microsoft.com/windows/win32/api/lmaccess/ns-lmaccess-user_info_1020)
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LogonHours {
     bytes: [u8; 21],

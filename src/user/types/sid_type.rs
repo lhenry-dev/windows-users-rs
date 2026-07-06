@@ -3,6 +3,7 @@ use windows::Win32::Security::SID_NAME_USE;
 use crate::user::types::InvalidUserProperty;
 
 /// SID name usage types (`SID_NAME_USE`)
+/// [`SID_NAME_USE`](https://learn.microsoft.com/windows/win32/api/winnt/ne-winnt-sid_name_use)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SidType {
     /// A user SID.

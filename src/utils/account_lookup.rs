@@ -16,6 +16,8 @@ fn is_insufficient_buffer(e: &windows::core::Error) -> bool {
 }
 
 impl UserManager {
+    /// Resolves a SID to an account name, domain name and [`SidType`] using
+    /// [`LookupAccountSidW`](https://learn.microsoft.com/windows/win32/api/winbase/nf-winbase-lookupaccountsidw).
     pub(crate) fn lookup_account_sid(
         &self,
         psid: PSID,
@@ -55,7 +57,8 @@ impl UserManager {
         }
     }
 
-    /// Returns account's `SID`, domain name and type, respectively.
+    /// Returns account's `SID`, domain name and type, respectively, using
+    /// [`LookupAccountNameW`](https://learn.microsoft.com/windows/win32/api/winbase/nf-winbase-lookupaccountnamew).
     #[cfg(test)]
     pub(crate) fn lookup_account_name(
         &self,

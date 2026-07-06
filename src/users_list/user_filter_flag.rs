@@ -6,6 +6,7 @@ use windows::Win32::NetworkManagement::NetManagement::{
 
 bitflags! {
     /// Flags used for NetUserEnum `filter` parameter
+    /// [`NetUserEnum`](https://learn.microsoft.com/windows/win32/api/lmaccess/nf-lmaccess-netuserenum)
     ///
     /// Specifies which types of user accounts to include in enumeration.
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]

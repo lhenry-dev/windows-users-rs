@@ -24,8 +24,9 @@ mod types;
 impl UserManager {
     /// Lists all local groups on the machine.
     ///
-    /// This function enumerates local groups with `NetLocalGroupEnum` level 1
-    /// and converts each row into a [`Group`].
+    /// This function enumerates local groups with
+    /// [`NetLocalGroupEnum`](https://learn.microsoft.com/windows/win32/api/lmaccess/nf-lmaccess-netlocalgroupenum)
+    /// level 1 and converts each row into a [`Group`].
     ///
     /// # Returns
     ///
@@ -81,7 +82,8 @@ impl UserManager {
     /// Lists members belonging to a local group.
     ///
     /// This function fetches the membership of `group` with
-    /// `NetLocalGroupGetMembers` level 2 and converts each row into a [`GroupMember`].
+    /// [`NetLocalGroupGetMembers`](https://learn.microsoft.com/windows/win32/api/lmaccess/nf-lmaccess-netlocalgroupgetmembers)
+    /// level 2 and converts each row into a [`GroupMember`].
     ///
     /// # Arguments
     /// * `group` - The local group name whose members should be listed.
@@ -147,7 +149,8 @@ impl UserManager {
     /// Lists local groups that a user belongs to.
     ///
     /// This function retrieves the set of local groups for `username`
-    /// using `NetUserGetLocalGroups` level 0.
+    /// using [`NetUserGetLocalGroups`](https://learn.microsoft.com/windows/win32/api/lmaccess/nf-lmaccess-netusergetlocalgroups)
+    /// level 0.
     ///
     /// Both direct and indirect group memberships are included
     /// (via `LG_INCLUDE_INDIRECT`), meaning:
@@ -215,8 +218,9 @@ impl UserManager {
 
     /// Adds users to a local group on the machine.
     ///
-    /// This function adds `usernames` to `group` using `NetLocalGroupAddMembers`
-    /// with `LOCALGROUP_MEMBERS_INFO_3`.
+    /// This function adds `usernames` to `group` using
+    /// [`NetLocalGroupAddMembers`](https://learn.microsoft.com/windows/win32/api/lmaccess/nf-lmaccess-netlocalgroupaddmembers)
+    /// with [`LOCALGROUP_MEMBERS_INFO_3`](https://learn.microsoft.com/windows/win32/api/lmaccess/ns-lmaccess-localgroup_members_info_3).
     ///
     /// # Arguments
     /// * `usernames` - Slice of user accounts to add to the group.
@@ -270,8 +274,9 @@ impl UserManager {
 
     /// Removes users from a local group on the machine.
     ///
-    /// This function removes `usernames` from `group` using `NetLocalGroupDelMembers`
-    /// with `LOCALGROUP_MEMBERS_INFO_3`.
+    /// This function removes `usernames` from `group` using
+    /// [`NetLocalGroupDelMembers`](https://learn.microsoft.com/windows/win32/api/lmaccess/nf-lmaccess-netlocalgroupdelmembers)
+    /// with [`LOCALGROUP_MEMBERS_INFO_3`](https://learn.microsoft.com/windows/win32/api/lmaccess/ns-lmaccess-localgroup_members_info_3).
     ///
     /// # Arguments
     /// * `usernames` - Slice of user accounts to remove from the group.
@@ -325,8 +330,9 @@ impl UserManager {
 
     /// Creates a local group on the target machine.
     ///
-    /// This function uses the Windows `NetLocalGroupAdd` API to create a new
-    /// local security group.
+    /// This function uses the Windows
+    /// [`NetLocalGroupAdd`](https://learn.microsoft.com/windows/win32/api/lmaccess/nf-lmaccess-netlocalgroupadd)
+    /// API to create a new local security group.
     ///
     /// # Arguments
     ///
@@ -371,8 +377,9 @@ impl UserManager {
 
     /// Deletes a local group from the target machine.
     ///
-    /// This function uses the Windows `NetLocalGroupDel` API to remove a local
-    /// security group.
+    /// This function uses the Windows
+    /// [`NetLocalGroupDel`](https://learn.microsoft.com/windows/win32/api/lmaccess/nf-lmaccess-netlocalgroupdel)
+    /// API to remove a local security group.
     ///
     /// # Arguments
     ///
@@ -399,7 +406,8 @@ impl UserManager {
     /// Retrieves a local group from the machine.
     ///
     /// This function queries the Windows local group database using
-    /// `NetLocalGroupGetInfo` level 1 and converts the result into a [`Group`].
+    /// [`NetLocalGroupGetInfo`](https://learn.microsoft.com/windows/win32/api/lmaccess/nf-lmaccess-netlocalgroupgetinfo)
+    /// level 1 and converts the result into a [`Group`].
     ///
     /// # Arguments
     ///
@@ -449,7 +457,8 @@ impl UserManager {
     /// Checks if a local group exists on the machine.
     ///
     /// This function queries the local group database using
-    /// `NetLocalGroupGetInfo` level 1.
+    /// [`NetLocalGroupGetInfo`](https://learn.microsoft.com/windows/win32/api/lmaccess/nf-lmaccess-netlocalgroupgetinfo)
+    /// level 1.
     ///
     /// Any successful retrieval means the group exists.
     /// Any failure is interpreted as non-existence or inaccessible group.
@@ -496,7 +505,8 @@ impl UserManager {
     /// Updates an existing local group on the machine.
     ///
     /// This function updates a local security group using
-    /// `NetLocalGroupSetInfo` level 1.
+    /// [`NetLocalGroupSetInfo`](https://learn.microsoft.com/windows/win32/api/lmaccess/nf-lmaccess-netlocalgroupsetinfo)
+    /// level 1.
     ///
     /// Only the fields provided in [`Group`] are applied.
     ///

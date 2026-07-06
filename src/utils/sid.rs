@@ -12,6 +12,8 @@ use windows::{
 use crate::error::WindowsUsersError;
 use crate::utils::ToWideString;
 
+/// Converts a `PSID` to its string form using
+/// [`ConvertSidToStringSidW`](https://learn.microsoft.com/windows/win32/api/sddl/nf-sddl-convertsidtostringsidw).
 pub fn psid_to_string(psid: PSID) -> Result<String, WindowsUsersError> {
     let mut str_sid: PWSTR = PWSTR(std::ptr::null_mut());
     unsafe {
@@ -49,6 +51,8 @@ impl OwnedSid {
     }
 }
 
+/// Converts a string SID into a `PSID` using
+/// [`ConvertStringSidToSidW`](https://learn.microsoft.com/windows/win32/api/sddl/nf-sddl-convertstringsidtosidw).
 pub fn str_to_psid(sid: &str) -> Result<OwnedSid, WindowsUsersError> {
     let mut psid = PSID(std::ptr::null_mut());
 

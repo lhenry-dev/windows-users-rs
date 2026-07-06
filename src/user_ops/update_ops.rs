@@ -15,6 +15,8 @@ use crate::{UserAccountFlags, UserManager};
 mod net_user_info_level;
 
 impl UserManager {
+    /// Calls [`NetUserSetInfo`](https://learn.microsoft.com/windows/win32/api/lmaccess/nf-lmaccess-netusersetinfo)
+    /// with the level defined by `T::LEVEL`.
     fn set_user_info<T: NetUserInfoLevel>(
         &self,
         username: &str,
@@ -40,7 +42,9 @@ impl UserManager {
 
     /// Renames a user on the local machine.
     ///
-    /// This function updates the account name using `NetUserSetInfo` level 0.
+    /// This function updates the account name using
+    /// [`NetUserSetInfo`](https://learn.microsoft.com/windows/win32/api/lmaccess/nf-lmaccess-netusersetinfo)
+    /// with [`USER_INFO_0`](https://learn.microsoft.com/windows/win32/api/lmaccess/ns-lmaccess-user_info_0) (level 0).
     ///
     /// # Arguments
     ///
@@ -74,7 +78,8 @@ impl UserManager {
 
     /// Sets a user's password.
     ///
-    /// This function updates the account password using level 1003.
+    /// This function updates the account password using
+    /// [`USER_INFO_1003`](https://learn.microsoft.com/windows/win32/api/lmaccess/ns-lmaccess-user_info_1003) (level 1003).
     ///
     /// # Arguments
     ///
@@ -111,6 +116,9 @@ impl UserManager {
 
     /// Sets the user's home directory path.
     ///
+    /// This function updates `usri1006_home_dir` using
+    /// [`USER_INFO_1006`](https://learn.microsoft.com/windows/win32/api/lmaccess/ns-lmaccess-user_info_1006) (level 1006).
+    ///
     /// # Arguments
     ///
     /// * `username` - Target account.
@@ -139,7 +147,8 @@ impl UserManager {
 
     /// Sets the descriptive comment for a user account.
     ///
-    /// This function updates the account comment using `NetUserSetInfo` level 1007.
+    /// This function updates the account comment using `NetUserSetInfo` with
+    /// [`USER_INFO_1007`](https://learn.microsoft.com/windows/win32/api/lmaccess/ns-lmaccess-user_info_1007) (level 1007).
     /// This field is typically used for administrative notes (e.g. role, purpose).
     ///
     /// # Arguments
@@ -179,7 +188,8 @@ impl UserManager {
     /// - password never expires
     /// - user cannot change password
     ///
-    /// Uses `NetUserSetInfo` level 1008.
+    /// Uses `NetUserSetInfo` with
+    /// [`USER_INFO_1008`](https://learn.microsoft.com/windows/win32/api/lmaccess/ns-lmaccess-user_info_1008) (level 1008).
     ///
     /// # Arguments
     ///
@@ -321,7 +331,8 @@ impl UserManager {
     /// Sets the logon script path for a user.
     ///
     /// This function defines the script executed at user logon
-    /// using `NetUserSetInfo` level 1009.
+    /// using `NetUserSetInfo` with
+    /// [`USER_INFO_1009`](https://learn.microsoft.com/windows/win32/api/lmaccess/ns-lmaccess-user_info_1009) (level 1009).
     ///
     /// # Arguments
     ///
@@ -360,7 +371,8 @@ impl UserManager {
     /// Sets the user's full display name.
     ///
     /// This updates the "Full Name" field visible in user management tools,
-    /// using `NetUserSetInfo` level 1011.
+    /// using `NetUserSetInfo` with
+    /// [`USER_INFO_1011`](https://learn.microsoft.com/windows/win32/api/lmaccess/ns-lmaccess-user_info_1011) (level 1011).
     ///
     /// # Arguments
     ///
@@ -394,7 +406,8 @@ impl UserManager {
     /// Sets the user-specific comment field.
     ///
     /// This is distinct from the standard account comment and is stored
-    /// in `usri1012_usr_comment`.
+    /// in `usri1012_usr_comment` of
+    /// [`USER_INFO_1012`](https://learn.microsoft.com/windows/win32/api/lmaccess/ns-lmaccess-user_info_1012) (level 1012).
     ///
     /// # Arguments
     ///
@@ -430,7 +443,7 @@ impl UserManager {
     ///
     /// This restriction controls from which machines the user is permitted
     /// to authenticate. It maps to the `usri1014_workstations` field in the
-    /// Windows `USER_INFO_1014` structure.
+    /// Windows [`USER_INFO_1014`](https://learn.microsoft.com/windows/win32/api/lmaccess/ns-lmaccess-user_info_1014) structure (level 1014).
     ///
     /// The value is stored as a comma-separated string of workstation names.
     ///
@@ -478,7 +491,8 @@ impl UserManager {
     /// Sets the account expiration date.
     ///
     /// This function defines when the account becomes invalid using
-    /// `NetUserSetInfo` level 1017.
+    /// `NetUserSetInfo` with
+    /// [`USER_INFO_1017`](https://learn.microsoft.com/windows/win32/api/lmaccess/ns-lmaccess-user_info_1017) (level 1017).
     ///
     /// # Arguments
     ///
@@ -515,7 +529,8 @@ impl UserManager {
     /// Sets allowed logon hours for a user.
     ///
     /// This function restricts when a user can authenticate using
-    /// `NetUserSetInfo` level 1020.
+    /// `NetUserSetInfo` with
+    /// [`USER_INFO_1020`](https://learn.microsoft.com/windows/win32/api/lmaccess/ns-lmaccess-user_info_1020) (level 1020).
     ///
     /// # Arguments
     ///
@@ -554,7 +569,8 @@ impl UserManager {
     /// Sets the user's country or region code.
     ///
     /// This updates localization-related metadata using
-    /// `NetUserSetInfo` level 1024.
+    /// `NetUserSetInfo` with
+    /// [`USER_INFO_1024`](https://learn.microsoft.com/windows/win32/api/lmaccess/ns-lmaccess-user_info_1024) (level 1024).
     ///
     /// # Arguments
     ///
@@ -583,7 +599,8 @@ impl UserManager {
     /// Sets the primary group RID for the user.
     ///
     /// This determines the user's primary group association
-    /// using `NetUserSetInfo` level 1051.
+    /// using `NetUserSetInfo` with
+    /// [`USER_INFO_1051`](https://learn.microsoft.com/windows/win32/api/lmaccess/ns-lmaccess-user_info_1051) (level 1051).
     ///
     /// # Arguments
     ///
@@ -614,7 +631,8 @@ impl UserManager {
     /// Sets the user profile path.
     ///
     /// This function defines the profile directory location
-    /// using `NetUserSetInfo` level 1052.
+    /// using `NetUserSetInfo` with
+    /// [`USER_INFO_1052`](https://learn.microsoft.com/windows/win32/api/lmaccess/ns-lmaccess-user_info_1052) (level 1052).
     ///
     /// # Arguments
     ///
@@ -641,7 +659,8 @@ impl UserManager {
     /// Sets the drive letter assigned to the user's home directory.
     ///
     /// This function updates the drive mapping (e.g. "H:")
-    /// using `NetUserSetInfo` level 1053.
+    /// using `NetUserSetInfo` with
+    /// [`USER_INFO_1053`](https://learn.microsoft.com/windows/win32/api/lmaccess/ns-lmaccess-user_info_1053) (level 1053).
     ///
     /// # Arguments
     ///

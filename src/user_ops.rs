@@ -23,7 +23,8 @@ impl UserManager {
     /// Adds a new user to the local machine.
     ///
     /// This function creates a local account from the provided [`User`] payload
-    /// using `NetUserAdd` level 4.
+    /// using [`NetUserAdd`](https://learn.microsoft.com/windows/win32/api/lmaccess/nf-lmaccess-netuseradd)
+    /// level 4.
     ///
     /// # Arguments
     ///
@@ -140,7 +141,7 @@ impl UserManager {
     /// Deletes a user from the local machine.
     ///
     /// This function removes an existing local account identified by `username`
-    /// using `NetUserDel`.
+    /// using [`NetUserDel`](https://learn.microsoft.com/windows/win32/api/lmaccess/nf-lmaccess-netuserdel).
     ///
     /// # Arguments
     ///
@@ -190,7 +191,7 @@ impl UserManager {
     /// Returns a [`WindowsUsersError`] if:
     /// - The username or old password is incorrect
     /// - The new password does not satisfy policy constraints
-    /// - The API call fails (`NetUserChangePassword`)
+    /// - The API call fails ([`NetUserChangePassword`](https://learn.microsoft.com/windows/win32/api/lmaccess/nf-lmaccess-netuserchangepassword))
     ///
     /// # Security
     ///
@@ -319,7 +320,8 @@ impl UserManager {
 
     /// Gets a single user from the local machine.
     ///
-    /// This function retrieves a local account by name using `NetUserGetInfo`
+    /// This function retrieves a local account by name using
+    /// [`NetUserGetInfo`](https://learn.microsoft.com/windows/win32/api/lmaccess/nf-lmaccess-netusergetinfo)
     /// level 4 and converts it into a [`User`] value.
     ///
     /// # Arguments
@@ -364,7 +366,9 @@ impl UserManager {
 
     /// Checks if a user exists on the local machine.
     ///
-    /// This function queries `NetUserGetInfo` level 0 and maps success to `true`.
+    /// This function queries
+    /// [`NetUserGetInfo`](https://learn.microsoft.com/windows/win32/api/lmaccess/nf-lmaccess-netusergetinfo)
+    /// level 0 and maps success to `true`.
     /// Any failure is interpreted as `false`.
     ///
     /// # Arguments
@@ -401,11 +405,12 @@ impl UserManager {
     ///
     /// This function resolves the identity of the current Windows session user
     /// and then fetches its full account information from the target machine
-    /// using `NetUserGetInfo` level 4.
+    /// using [`NetUserGetInfo`](https://learn.microsoft.com/windows/win32/api/lmaccess/nf-lmaccess-netusergetinfo)
+    /// level 4.
     ///
     /// The lookup is performed in two steps:
     ///
-    /// - The current username is retrieved using `GetUserNameW` (Win32 API)
+    /// - The current username is retrieved using [`GetUserNameW`](https://learn.microsoft.com/windows/win32/api/winbase/nf-winbase-getusernamew) (Win32 API)
     /// - The username is resolved into a full account record using `NetUserGetInfo`
     ///
     /// # Returns
@@ -483,7 +488,8 @@ impl UserManager {
     /// Attempts to authenticate a user using Windows LSA logon.
     ///
     /// This function performs a real authentication attempt using the Windows API
-    /// `LogonUserW` with the `LOGON32_LOGON_NETWORK` logon type.
+    /// [`LogonUserW`](https://learn.microsoft.com/windows/win32/api/winbase/nf-winbase-logonuserw)
+    /// with the `LOGON32_LOGON_NETWORK` logon type.
     ///
     /// It validates credentials against the Windows security subsystem (LSA),
     /// meaning it performs a real logon attempt rather than only checking password

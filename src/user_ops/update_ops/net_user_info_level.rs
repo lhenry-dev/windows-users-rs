@@ -5,6 +5,8 @@ use windows::Win32::NetworkManagement::NetManagement::{
     USER_INFO_1024, USER_INFO_1051, USER_INFO_1052, USER_INFO_1053,
 };
 
+/// Maps a `USER_INFO_*` struct to the `level` value expected by
+/// [`NetUserSetInfo`](https://learn.microsoft.com/windows/win32/api/lmaccess/nf-lmaccess-netusersetinfo).
 pub trait NetUserInfoLevel {
     const LEVEL: u32;
 }

@@ -11,7 +11,8 @@ mod user_filter_flag;
 impl UserManager {
     /// Counts the number of user accounts on the local machine.
     ///
-    /// This function enumerates local normal accounts via `NetUserEnum`
+    /// This function enumerates local normal accounts via
+    /// [`NetUserEnum`](https://learn.microsoft.com/windows/win32/api/lmaccess/nf-lmaccess-netuserenum)
     /// and returns the number of entries read in the current enumeration call.
     ///
     /// # Arguments
@@ -60,8 +61,9 @@ impl UserManager {
 
     /// Lists users on the local machine.
     ///
-    /// This function enumerates local normal accounts via `NetUserEnum` level 3
-    /// and converts each entry into a [`User`].
+    /// This function enumerates local normal accounts via
+    /// [`NetUserEnum`](https://learn.microsoft.com/windows/win32/api/lmaccess/nf-lmaccess-netuserenum)
+    /// level 3 and converts each entry into a [`User`].
     ///
     /// # Arguments
     ///

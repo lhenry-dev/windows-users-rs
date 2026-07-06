@@ -12,7 +12,8 @@ use windows::Win32::NetworkManagement::NetManagement::{
 use crate::user::types::InvalidUserProperty;
 
 bitflags! {
-    /// User account flags from `usri3_flags`
+    /// User account flags from `usri4_flags`
+    /// [`USER_INFO_4`](https://learn.microsoft.com/windows/win32/api/lmaccess/ns-lmaccess-user_info_4) (see `usri4_flags`)
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct UserAccountFlags: u32 {
         /// Script flag

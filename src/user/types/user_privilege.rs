@@ -4,7 +4,8 @@ use windows::Win32::NetworkManagement::NetManagement::{
 
 use crate::user::types::InvalidUserProperty;
 
-/// User privilege levels from `usri3_priv`
+/// User privilege levels from `usri4_priv`
+/// [`USER_INFO_4`](https://learn.microsoft.com/windows/win32/api/lmaccess/ns-lmaccess-user_info_4) (see `usri4_priv`)
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum UserPrivilege {
     /// Guest user privilege level.

@@ -37,7 +37,7 @@ impl Sid {
     ///
     /// Returns [`WindowsUsersError`] if:
     /// - The SID is invalid or malformed
-    /// - The lookup operation fails (`LookupAccountSid` failure)
+    /// - The lookup operation fails ([`LookupAccountSidW`](https://learn.microsoft.com/windows/win32/api/winbase/nf-winbase-lookupaccountsidw) failure)
     /// - The SID cannot be resolved to a known account
     pub fn name(&self, user_manager: &UserManager) -> Result<String, WindowsUsersError> {
         user_manager
